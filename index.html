@@ -95,18 +95,18 @@
 
 <div id="app" v-cloak class="flex-1 flex flex-col relative z-10">
 
-  <!-- ================= 頂部狀態導覽列 (講台前大螢幕專用高對比) ================= -->
-  <header class="bg-slate-900/90 border-b border-indigo-900/50 px-5 py-3.5 shadow-2xl backdrop-blur sticky top-0 z-40">
+  <!-- ================= 頂部狀態導覽列 ================= -->
+  <header class="bg-slate-900/90 border-b border-indigo-900/50 px-5 py-3 shadow-2xl backdrop-blur sticky top-0 z-40">
     <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
       
       <!-- 網站主標題與氣泡水品牌 -->
       <div class="flex items-center space-x-3.5">
-        <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 font-black text-2xl text-white">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 font-black text-2xl text-white">
           🫧
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-xl sm:text-2xl font-black tracking-wide text-white flex items-center gap-2">
+            <h1 class="text-lg sm:text-xl font-black tracking-wide text-white flex items-center gap-2">
               羚藝汽泡水 作業佈告欄
               <span class="text-xs px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold hidden sm:inline-flex">
                 607 講台清點專用
@@ -114,24 +114,20 @@
             </h1>
             
             <!-- Padlet 同步狀態徽章 -->
-            <span v-if="syncStatus === 'syncing'" class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium flex items-center gap-1.5 animate-pulse">
+            <span v-if="syncStatus === 'syncing'" class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium flex items-center gap-1.5 animate-pulse">
               <span class="w-2 h-2 rounded-full bg-amber-400"></span> 讀取中...
             </span>
-            <span v-else-if="syncStatus === 'success'" class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium flex items-center gap-1.5 cursor-pointer hover:bg-emerald-500/30" @click="showSyncOptionsModal = true" :title="'點擊查看同步資訊。最新貼文：' + padletLatestDate">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Padlet 已同步 ({{ padletLatestDate }})
-            </span>
-            <span v-else class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-medium flex items-center gap-1.5 cursor-pointer hover:bg-slate-700" @click="showSyncOptionsModal = true">
-              <span class="w-2 h-2 rounded-full bg-slate-500"></span> 本地模式 (點此同步)
+            <span v-else class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium flex items-center gap-1.5 cursor-pointer hover:bg-emerald-500/30" @click="showSyncOptionsModal = true" :title="'點擊查看同步資訊。最新貼文：' + padletLatestDate">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Padlet ({{ padletLatestDate }})
             </span>
           </div>
 
-          <!-- 副資訊列 -->
-          <div class="text-xs sm:text-sm text-slate-400 font-medium flex items-center gap-2 sm:gap-3 mt-0.5">
-            <span>📅 {{ formattedDate }}</span>
+          <div class="text-xs text-slate-400 font-medium flex items-center gap-2 mt-0.5">
+            <span>📅 目前顯示：<strong class="text-indigo-300">{{ currentDayObject ? currentDayObject.name + ' ' + currentDayObject.shortDate : '本週總表' }}</strong></span>
             <span>•</span>
-            <span>全班座號：<strong class="text-slate-200">1 ~ 26</strong> 號</span>
-            <span v-if="absentStudents.length > 0" class="text-amber-400 font-bold">
-              • 今日請假：{{ absentStudents.join(', ') }} 號
+            <span>全班：<strong class="text-slate-200">26</strong> 人</span>
+            <span v-if="currentAbsentList.length > 0" class="text-amber-400 font-bold">
+              • 請假：{{ currentAbsentList.join(', ') }} 號
             </span>
           </div>
         </div>
@@ -140,55 +136,55 @@
       <!-- 右側工具快捷操作列 -->
       <div class="flex items-center flex-wrap gap-2">
         
-        <!-- 自動同步 Padlet 按鈕 (打開同步中心) -->
+        <!-- 自動同步 Padlet 按鈕 -->
         <button @click="showSyncOptionsModal = true"
-                class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition flex items-center gap-1.5 shadow-sm active:scale-95">
+                class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition flex items-center gap-1.5 shadow-sm active:scale-95">
           <span :class="{'animate-spin': syncStatus === 'syncing'}">🔄</span>
           <span>同步 Padlet</span>
         </button>
 
         <!-- 設定請假 -->
-        <button @click="showAbsentModal = true"
-                class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1.5 shadow-sm">
-          <span>🩺 設定請假</span>
-          <span v-if="absentStudents.length > 0" class="w-4 h-4 rounded-full bg-amber-500 text-slate-950 text-[10px] flex items-center justify-center font-black">
-            {{ absentStudents.length }}
+        <button v-if="activeTab !== 'summary'" @click="showAbsentModal = true"
+                class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1.5 shadow-sm">
+          <span>🩺 今日請假</span>
+          <span v-if="currentAbsentList.length > 0" class="w-4 h-4 rounded-full bg-amber-500 text-slate-950 text-[10px] flex items-center justify-center font-black">
+            {{ currentAbsentList.length }}
           </span>
         </button>
 
-        <!-- 管理/編輯作業 -->
-        <button @click="showManageHomeworkModal = true"
-                class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1.5 shadow-sm">
-          <span>📝 編輯作業</span>
+        <!-- 編輯作業 -->
+        <button v-if="activeTab !== 'summary'" @click="showManageHomeworkModal = true"
+                class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1.5 shadow-sm">
+          <span>📝 編輯項目</span>
           <span class="w-4 h-4 rounded-full bg-sky-500 text-slate-900 text-[10px] flex items-center justify-center font-black">
-            {{ homeworkList.length }}
+            {{ currentHomeworkList.length }}
           </span>
         </button>
 
         <!-- 一鍵複製 LINE 催繳訊息 -->
-        <button @click="copyLineReport"
-                class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 active:scale-95">
-          <span>📋 複製未交名單</span>
+        <button @click="copyReport"
+                class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 active:scale-95">
+          <span>📋 {{ activeTab === 'summary' ? '複製本週未交總清單' : '複製未交名單' }}</span>
         </button>
 
-        <!-- 音效切換 -->
+        <!-- 音效開關 -->
         <button @click="soundEnabled = !soundEnabled"
                 :class="soundEnabled ? 'bg-slate-800 text-emerald-400 border-slate-700' : 'bg-slate-900 text-slate-500 border-slate-800'"
-                class="px-2.5 py-2 rounded-xl text-xs font-bold border transition hover:bg-slate-800" :title="soundEnabled ? '點擊關閉音效' : '點擊開啟音效'">
+                class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition hover:bg-slate-800" :title="soundEnabled ? '點擊關閉音效' : '點擊開啟音效'">
           <span v-if="soundEnabled">🔊</span>
           <span v-else>🔇</span>
         </button>
 
         <!-- 視圖切換：組長點收模式 vs 黑板大看板模式 -->
-        <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <div v-if="activeTab !== 'summary'" class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
           <button @click="currentView = 'check'"
                   :class="currentView === 'check' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-400 hover:text-white'"
-                  class="px-3 py-1.5 rounded-lg text-xs transition">
+                  class="px-2.5 py-1 rounded-lg text-xs transition">
             組長點選
           </button>
           <button @click="currentView = 'board'"
                   :class="currentView === 'board' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-400 hover:text-white'"
-                  class="px-3 py-1.5 rounded-lg text-xs transition">
+                  class="px-2.5 py-1 rounded-lg text-xs transition">
             黑板大看板
           </button>
         </div>
@@ -202,244 +198,444 @@
     <span>{{ toastMsg }}</span>
   </div>
 
+  <!-- ================= 核心導覽：禮拜一到禮拜五的分頁導覽列 (週一至週五 Tabs) ================= -->
+  <section class="bg-slate-900/60 border-b border-slate-800/80 px-4 sm:px-6 py-2.5 sticky top-[69px] z-30 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+      
+      <!-- 上一週 / 下一週 切換按鈕 -->
+      <div class="flex items-center gap-2 text-xs font-bold text-slate-300">
+        <button @click="changeWeek(-1)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
+          <span>◀</span> 上一週
+        </button>
+        <span class="px-3 py-1 rounded-lg bg-indigo-950/60 text-indigo-300 border border-indigo-700/40 font-mono text-xs">
+          {{ weekLabel }}
+        </span>
+        <button @click="changeWeek(1)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
+          下一週 <span>▶</span>
+        </button>
+        <button v-if="!isCurrentWeek" @click="resetToCurrentWeek" class="text-xs text-cyan-400 hover:underline ml-1">
+          回本週
+        </button>
+      </div>
+
+      <!-- 禮拜一到禮拜五的分頁標籤 (週一至週五 + 彙整總表) -->
+      <div class="flex items-center flex-wrap gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+        <button v-for="day in weekDays" :key="day.iso"
+                @click="switchDay(day.iso)"
+                :class="activeTab === day.iso ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white font-black shadow-lg shadow-indigo-900/40 border-cyan-400' : 'bg-slate-800/80 hover:bg-slate-750 text-slate-300 border-slate-700/80'"
+                class="px-3.5 py-2 rounded-xl text-xs sm:text-sm border transition flex items-center gap-2 relative overflow-hidden group flex-shrink-0">
+          
+          <div class="flex items-center gap-1.5">
+            <span>{{ day.name }}</span>
+            <span class="text-[11px] opacity-75 font-mono">({{ day.shortDate }})</span>
+          </div>
+
+          <!-- 今日標籤 -->
+          <span v-if="day.iso === todayIso"
+                :class="activeTab === day.iso ? 'bg-white text-indigo-900' : 'bg-cyan-500 text-slate-950'"
+                class="text-[9px] px-1.5 py-0.2 rounded-full font-black uppercase">
+            今日
+          </span>
+
+          <!-- 每日狀態指示徽章 -->
+          <span v-if="getDayMissingCount(day.iso) === 0 && getDayTaskCount(day.iso) > 0"
+                class="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-500/40" title="全部繳齊"></span>
+          <span v-else-if="getDayMissingCount(day.iso) > 0"
+                class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black" :title="'欠 ' + getDayMissingCount(day.iso) + ' 人'">
+            {{ getDayMissingCount(day.iso) }}
+          </span>
+        </button>
+
+        <!-- 本週彙整總表分頁 (每週作業缺交大盤點) -->
+        <button @click="activeTab = 'summary'"
+                :class="activeTab === 'summary' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white font-black shadow-lg shadow-purple-900/40 border-purple-400' : 'bg-slate-800/80 hover:bg-slate-750 text-slate-300 border-slate-700/80'"
+                class="px-4 py-2 rounded-xl text-xs sm:text-sm border transition flex items-center gap-1.5 flex-shrink-0">
+          <span>📊</span>
+          <span>本週彙整總表</span>
+          <span v-if="totalWeeklyMissingCount > 0" class="px-2 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">
+            欠 {{ totalWeeklyMissingCount }}
+          </span>
+          <span v-else-if="hasAnyTasksThisWeek" class="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black">
+            全齊
+          </span>
+        </button>
+      </div>
+
+    </div>
+  </section>
+
   <!-- 主內容區 -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
 
-    <!-- ================= 視圖 1: 組長點選登記模式 (Check View) ================= -->
-    <div v-if="currentView === 'check'" class="flex-1 flex flex-col gap-6">
+    <!-- ================= 視圖 A: 單日模式（週一 ~ 週五之其中一日） ================= -->
+    <template v-if="activeTab !== 'summary'">
+      
+      <!-- ================= 視圖 A-1: 組長點選登記模式 (Check View) ================= -->
+      <div v-if="currentView === 'check'" class="flex-1 flex flex-col gap-6">
 
-      <!-- 1. 科目選擇大標籤頁 (組長走上前一鍵切換自己科目) -->
-      <div>
-        <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-          <span class="flex items-center gap-1.5">
-            <span>👇</span>
-            <strong class="text-indigo-300">第一步：請組長點選你負責收的作業</strong>
-            <span class="text-amber-400 font-bold ml-1">（第 1 項固定為「聯絡簿」）</span>
-          </span>
-          <span class="text-slate-400 font-medium">今日共 {{ homeworkList.length }} 項作業</span>
-        </div>
-        
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-          <button v-for="(hw, idx) in homeworkList" :key="hw.id"
-                  @click="activeHwId = hw.id; playClickSound()"
-                  :class="activeHwId === hw.id ? 'ring-2 ring-cyan-400 bg-indigo-950/80 border-cyan-400 text-white shadow-xl shadow-cyan-950/40' : (hw.isFixed ? 'bg-amber-950/30 border-amber-600/40 text-amber-200 hover:bg-amber-950/50' : 'bg-slate-800/80 border-slate-700/80 text-slate-300 hover:bg-slate-750')"
-                  class="p-3.5 rounded-2xl border text-left flex flex-col justify-between transition-all relative overflow-hidden group">
-            
-            <div class="flex items-start justify-between gap-1 mb-2">
-              <div class="flex items-center gap-1.5 truncate">
-                <span v-if="hw.isFixed" class="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black">第1項</span>
-                <span class="font-black text-base sm:text-lg truncate" :title="hw.title">{{ hw.title }}</span>
+        <!-- 1. 當前日期的作業選擇大標籤頁 (第一項固定為「聯絡簿」) -->
+        <div>
+          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
+            <span class="flex items-center gap-1.5">
+              <span>👇</span>
+              <strong class="text-indigo-300">請組長點選負責的作業（目前為 {{ currentDayObject ? currentDayObject.name : '' }}）</strong>
+              <span class="text-amber-400 font-bold ml-1">（第 1 項固定為「聯絡簿」）</span>
+            </span>
+            <span class="text-slate-400 font-medium">當日共 {{ currentHomeworkList.length }} 項作業</span>
+          </div>
+          
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            <button v-for="(hw, idx) in currentHomeworkList" :key="hw.id"
+                    @click="activeHwId = hw.id; playClickSound()"
+                    :class="activeHwId === hw.id ? 'ring-2 ring-cyan-400 bg-indigo-950/80 border-cyan-400 text-white shadow-xl shadow-cyan-950/40' : (hw.isFixed ? 'bg-amber-950/30 border-amber-600/40 text-amber-200 hover:bg-amber-950/50' : 'bg-slate-800/80 border-slate-700/80 text-slate-300 hover:bg-slate-750')"
+                    class="p-3.5 rounded-2xl border text-left flex flex-col justify-between transition-all relative overflow-hidden group">
+              
+              <div class="flex items-start justify-between gap-1 mb-2">
+                <div class="flex items-center gap-1.5 truncate">
+                  <span v-if="hw.isFixed" class="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black">第1項</span>
+                  <span class="font-black text-base sm:text-lg truncate" :title="hw.title">{{ hw.title }}</span>
+                </div>
+                <span v-if="getMissingCount(hw.id) === 0" class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30 whitespace-nowrap">
+                  全齊 🎉
+                </span>
+                <span v-else class="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-black border border-rose-500/30 whitespace-nowrap">
+                  缺 {{ getMissingCount(hw.id) }} 人
+                </span>
               </div>
-              <span v-if="getMissingCount(hw.id) === 0" class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30 whitespace-nowrap">
-                全齊 🎉
-              </span>
-              <span v-else class="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-black border border-rose-500/30 whitespace-nowrap">
-                缺 {{ getMissingCount(hw.id) }} 人
-              </span>
-            </div>
 
-            <!-- 繳交率進度條 -->
-            <div class="w-full bg-slate-700/60 rounded-full h-2 overflow-hidden mb-1.5">
-              <div class="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-300"
-                   :style="{ width: getSubmitPercentage(hw.id) + '%' }"></div>
-            </div>
+              <!-- 繳交率進度條 -->
+              <div class="w-full bg-slate-700/60 rounded-full h-2 overflow-hidden mb-1.5">
+                <div class="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-300"
+                     :style="{ width: getSubmitPercentage(hw.id) + '%' }"></div>
+              </div>
 
-            <div class="flex justify-between items-center text-xs text-slate-400 font-medium">
-              <span>已交：<strong class="text-emerald-400 font-bold">{{ getSubmittedCount(hw.id) }}</strong> / 26</span>
-              <span class="font-bold text-slate-300">{{ getSubmitPercentage(hw.id) }}%</span>
-            </div>
-          </button>
+              <div class="flex justify-between items-center text-xs text-slate-400 font-medium">
+                <span>已交：<strong class="text-emerald-400 font-bold">{{ getSubmittedCount(hw.id) }}</strong> / 26</span>
+                <span class="font-bold text-slate-300">{{ getSubmitPercentage(hw.id) }}%</span>
+              </div>
+            </button>
+          </div>
         </div>
+
+        <!-- 2. 當前作業資訊與操作提示卡 -->
+        <div v-if="currentHw" class="bg-slate-800/90 rounded-3xl p-5 border border-slate-700 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-3">
+              <h2 class="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
+                <span v-if="currentHw.isFixed">📕</span>
+                <span v-else>📖</span>
+                <span>{{ currentHw.title }}</span>
+                <span v-if="currentHw.isFixed" class="text-xs px-2.5 py-1 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
+                  每日第一項固定清點
+                </span>
+              </h2>
+              <span v-if="getMissingCount(currentHw.id) === 0" class="px-3.5 py-1 rounded-xl bg-emerald-500 text-slate-950 font-black text-sm shadow-md">
+                全班已交齊！
+              </span>
+              <span v-else class="px-3.5 py-1 rounded-xl bg-rose-500 text-white font-black text-sm shadow-md">
+                尚缺 {{ getMissingCount(currentHw.id) }} 人
+              </span>
+            </div>
+            <p class="text-sm text-slate-300 mt-1.5">
+              👉 <span class="text-amber-300 font-bold">操作方式：</span>預設為已交（綠燈）。請點擊「<strong class="text-rose-400 underline decoration-2">未繳交</strong>」同學座號（變紅燈 ❌）。若之後補交，再點一次變回綠燈。
+            </p>
+          </div>
+
+          <!-- 快速功能按鈕 -->
+          <div class="flex items-center gap-2 self-start md:self-auto">
+            <button @click="markAllSubmitted(currentHw.id)"
+                    class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-emerald-300 border border-slate-600 transition">
+              ✅ 本科全部已交
+            </button>
+            <button @click="markAllMissing(currentHw.id)"
+                    class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-rose-300 border border-slate-600 transition">
+              ❌ 本科全部重選
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. 座號矩陣 1 ~ 26 號（大按鈕設計，超好點選） -->
+        <div v-if="currentHw" class="bg-slate-800/60 rounded-3xl p-5 sm:p-6 border border-slate-700/80 shadow-2xl">
+          <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 sm:gap-4">
+            <button v-for="seat in 26" :key="seat"
+                    @click="toggleStudentStatus(currentHw.id, seat)"
+                    :disabled="isAbsent(seat)"
+                    :class="getSeatButtonClass(currentHw.id, seat)"
+                    class="grid-cell h-24 sm:h-28 rounded-2xl flex flex-col items-center justify-center p-2 relative shadow-md select-none border">
+              
+              <!-- 座號數字 (超大清晰字體，坐在講台前或後方都看得清) -->
+              <span class="text-3xl sm:text-4xl font-black tracking-tight leading-none mb-1">
+                {{ seat }}
+              </span>
+
+              <!-- 狀態文字標籤 -->
+              <span class="text-xs font-bold flex items-center gap-1">
+                <template v-if="isAbsent(seat)">
+                  <span class="text-amber-300">⚪ 請假</span>
+                </template>
+                <template v-else-if="getStatus(currentHw.id, seat) === 'missing'">
+                  <span class="text-white font-black bg-rose-900/60 px-2 py-0.5 rounded-md border border-rose-400">❌ 未繳交</span>
+                </template>
+                <template v-else>
+                  <span class="text-emerald-100 font-bold opacity-90">✔ 已交</span>
+                </template>
+              </span>
+
+              <!-- 角標座號提示 -->
+              <span class="absolute top-2 left-2 text-[10px] opacity-60 font-mono">
+                #{{ seat < 10 ? '0' + seat : seat }}
+              </span>
+            </button>
+          </div>
+
+          <!-- 底部即時統計名單 -->
+          <div class="mt-6 pt-5 border-t border-slate-700/80 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold text-slate-400">目前未繳交座號：</span>
+              <div v-if="getMissingList(currentHw.id).length === 0" class="text-emerald-400 font-bold text-base flex items-center gap-1">
+                <span>🎉 太棒了，本科全班全數到齊！</span>
+              </div>
+              <div v-else class="flex flex-wrap gap-1.5">
+                <span v-for="seat in getMissingList(currentHw.id)" :key="seat"
+                      @click="toggleStudentStatus(currentHw.id, seat)"
+                      class="px-3 py-1 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 text-sm font-black cursor-pointer hover:bg-rose-500/40 transition"
+                      title="點擊此處可直接補交">
+                  {{ seat }} 號
+                </span>
+              </div>
+            </div>
+            <div class="text-xs text-slate-400">
+              💾 即時自動儲存於瀏覽器 LocalStorage
+            </div>
+          </div>
+        </div>
+
       </div>
 
-      <!-- 2. 當前作業資訊與操作提示卡 -->
-      <div v-if="currentHw" class="bg-slate-800/90 rounded-3xl p-5 border border-slate-700 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div class="flex items-center gap-3">
+      <!-- ================= 視圖 A-2: 黑板大看板模式 (Board / Zen View) ================= -->
+      <div v-if="currentView === 'board'" class="flex-1 flex flex-col gap-6">
+        
+        <!-- 總體橫幅 -->
+        <div class="bg-gradient-to-r from-indigo-900/70 via-purple-900/60 to-slate-900/70 border border-indigo-700/50 rounded-3xl p-6 text-center shadow-2xl relative overflow-hidden">
+          <div class="relative z-10">
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-wide mb-2">
+              📢 607 {{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }} 作業繳交總覽
+            </h2>
+            <p class="text-slate-300 text-base font-medium">
+              請尚未完成作業的同學，於下課或午休前盡速補齊給各科組長！
+            </p>
+          </div>
+        </div>
+
+        <!-- 全科目卡片並列展示 (大字體投影版) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div v-for="hw in currentHomeworkList" :key="hw.id"
+               :class="hw.isFixed ? 'border-amber-500/40 bg-slate-850' : 'border-slate-700 bg-slate-800/90'"
+               class="rounded-3xl p-6 border shadow-xl flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-2 pb-4 border-b border-slate-700/80 mb-4">
+                <div class="flex items-center gap-2 truncate">
+                  <span v-if="hw.isFixed" class="text-xs px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black">第1項</span>
+                  <h3 class="text-2xl font-black text-white truncate" :title="hw.title">{{ hw.title }}</h3>
+                </div>
+                <span v-if="getMissingCount(hw.id) === 0" class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black">
+                  100% 全交
+                </span>
+                <span v-else class="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-black">
+                  缺 {{ getMissingCount(hw.id) }} 人
+                </span>
+              </div>
+
+              <!-- 缺交名單大字顯示 -->
+              <div class="min-h-[140px] flex flex-col justify-center">
+                <div v-if="getMissingList(hw.id).length === 0" class="text-center py-6">
+                  <div class="text-5xl mb-2">🎉</div>
+                  <div class="text-emerald-400 font-black text-xl">全班全數繳齊</div>
+                  <div class="text-slate-400 text-xs mt-1">讚！大家都很有責任感</div>
+                </div>
+
+                <div v-else>
+                  <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    尚未繳交座號：
+                  </div>
+                  <div class="flex flex-wrap gap-2.5">
+                    <span v-for="seat in getMissingList(hw.id)" :key="seat"
+                          @click="toggleStudentStatus(hw.id, seat)"
+                          class="w-12 h-12 rounded-2xl bg-rose-600/30 text-rose-200 border-2 border-rose-500/60 font-black text-xl flex items-center justify-center shadow-lg hover:scale-105 transition cursor-pointer"
+                          title="點擊補交">
+                      {{ seat }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 底部進度 -->
+            <div class="mt-6 pt-4 border-t border-slate-700/60">
+              <div class="flex justify-between text-xs text-slate-400 font-bold mb-1.5">
+                <span>繳交進度</span>
+                <span>{{ getSubmittedCount(hw.id) }} / 26 人 ({{ getSubmitPercentage(hw.id) }}%)</span>
+              </div>
+              <div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-300"
+                     :style="{ width: getSubmitPercentage(hw.id) + '%' }"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </template>
+
+
+    <!-- ================= 視圖 B: 📊 本週作業未交彙整總表 (Weekly Summary Matrix) ================= -->
+    <template v-if="activeTab === 'summary'">
+      <div class="flex-1 flex flex-col gap-6">
+
+        <!-- 頂部總覽卡片 -->
+        <div class="bg-gradient-to-r from-purple-950/80 via-slate-900 to-indigo-950/80 border border-purple-700/50 rounded-3xl p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+          <div>
             <h2 class="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
-              <span v-if="currentHw.isFixed">📕</span>
-              <span v-else>📖</span>
-              <span>{{ currentHw.title }}</span>
-              <span v-if="currentHw.isFixed" class="text-xs px-2.5 py-1 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
-                每日第一項固定清點
+              <span>📊 607 本週作業繳交總清單</span>
+              <span class="text-sm px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono">
+                {{ weekLabel }}
               </span>
             </h2>
-            <span v-if="getMissingCount(currentHw.id) === 0" class="px-3.5 py-1 rounded-xl bg-emerald-500 text-slate-950 font-black text-sm shadow-md">
-              全班已交齊！
-            </span>
-            <span v-else class="px-3.5 py-1 rounded-xl bg-rose-500 text-white font-black text-sm shadow-md">
-              尚缺 {{ getMissingCount(currentHw.id) }} 人
-            </span>
+            <p class="text-slate-300 text-sm mt-1">
+              統整週一至週五全班每位同學欠繳作業狀況，協助導師在週五放學前全面清算追蹤。
+            </p>
           </div>
-          <p class="text-sm text-slate-300 mt-1.5">
-            👉 <span class="text-amber-300 font-bold">組長操作步驟：</span>系統預設全班皆為「已交（綠燈）」。請直接點擊「<strong class="text-rose-400 underline decoration-2">未繳交</strong>」同學座號（變紅燈 ❌）。若下午補交，再點一次即可變回綠燈。
-          </p>
-        </div>
 
-        <!-- 快速功能按鈕 -->
-        <div class="flex items-center gap-2 self-start md:self-auto">
-          <button @click="markAllSubmitted(currentHw.id)"
-                  class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-emerald-300 border border-slate-600 transition">
-            ✅ 本科全部已交
-          </button>
-          <button @click="markAllMissing(currentHw.id)"
-                  class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-rose-300 border border-slate-600 transition">
-            ❌ 本科全部重選
-          </button>
-        </div>
-      </div>
-
-      <!-- 3. 座號矩陣 1 ~ 26 號（大按鈕設計，超好點選） -->
-      <div v-if="currentHw" class="bg-slate-800/60 rounded-3xl p-5 sm:p-6 border border-slate-700/80 shadow-2xl">
-        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-3 sm:gap-4">
-          <button v-for="seat in 26" :key="seat"
-                  @click="toggleStudentStatus(currentHw.id, seat)"
-                  :disabled="isAbsent(seat)"
-                  :class="getSeatButtonClass(currentHw.id, seat)"
-                  class="grid-cell h-24 sm:h-28 rounded-2xl flex flex-col items-center justify-center p-2 relative shadow-md select-none border">
-            
-            <!-- 座號數字 (超大清晰字體，坐在講台前或後方都看得清) -->
-            <span class="text-3xl sm:text-4xl font-black tracking-tight leading-none mb-1">
-              {{ seat }}
-            </span>
-
-            <!-- 狀態文字標籤 -->
-            <span class="text-xs font-bold flex items-center gap-1">
-              <template v-if="isAbsent(seat)">
-                <span class="text-amber-300">⚪ 請假</span>
-              </template>
-              <template v-else-if="getStatus(currentHw.id, seat) === 'missing'">
-                <span class="text-white font-black bg-rose-900/60 px-2 py-0.5 rounded-md border border-rose-400">❌ 未繳交</span>
-              </template>
-              <template v-else>
-                <span class="text-emerald-100 font-bold opacity-90">✔ 已交</span>
-              </template>
-            </span>
-
-            <!-- 角標座號提示 -->
-            <span class="absolute top-2 left-2 text-[10px] opacity-60 font-mono">
-              #{{ seat < 10 ? '0' + seat : seat }}
-            </span>
-          </button>
-        </div>
-
-        <!-- 底部即時統計名單 -->
-        <div class="mt-6 pt-5 border-t border-slate-700/80 flex flex-wrap items-center justify-between gap-4">
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-bold text-slate-400">目前未繳交座號：</span>
-            <div v-if="getMissingList(currentHw.id).length === 0" class="text-emerald-400 font-bold text-base flex items-center gap-1">
-              <span>🎉 太棒了，本科全班全數到齊！</span>
+          <!-- 統計徽章 -->
+          <div class="flex items-center gap-3">
+            <div class="bg-slate-800/90 px-4 py-2.5 rounded-2xl border border-slate-700 text-center">
+              <div class="text-xs text-slate-400 font-bold">本週欠繳總項次</div>
+              <div class="text-2xl font-black text-rose-400">{{ totalWeeklyMissingCount }} 次</div>
             </div>
-            <div v-else class="flex flex-wrap gap-1.5">
-              <span v-for="seat in getMissingList(currentHw.id)" :key="seat"
-                    @click="toggleStudentStatus(currentHw.id, seat)"
-                    class="px-3 py-1 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 text-sm font-black cursor-pointer hover:bg-rose-500/40 transition"
-                    title="點擊此處可直接補交">
-                {{ seat }} 號
-              </span>
+            <div class="bg-slate-800/90 px-4 py-2.5 rounded-2xl border border-slate-700 text-center">
+              <div class="text-xs text-slate-400 font-bold">全週無欠繳人數</div>
+              <div class="text-2xl font-black text-emerald-400">{{ cleanStudentsCount }} / 26 人</div>
             </div>
           </div>
-          <div class="text-xs text-slate-400">
-            💾 即時自動儲存於本機 LocalStorage
+        </div>
+
+        <!-- 重點提醒：尚有欠繳的學生卡片清單 -->
+        <div class="bg-slate-800/70 border border-slate-700/80 rounded-3xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700/70">
+            <h3 class="text-lg font-black text-white flex items-center gap-2">
+              <span class="text-rose-400">⚠️</span>
+              <span>本週尚未繳清同學名單 (共 {{ studentsWithDebt.length }} 人)</span>
+            </h3>
+            <span class="text-xs text-slate-400">點擊右方標籤可立即代為補交銷帳</span>
           </div>
-        </div>
-      </div>
 
-    </div>
+          <div v-if="studentsWithDebt.length === 0" class="text-center py-10">
+            <div class="text-6xl mb-3">🎉</div>
+            <div class="text-2xl font-black text-emerald-400">太棒了！本週全班作業全數繳齊！</div>
+            <div class="text-slate-400 text-sm mt-1">每一位同學都完成了本週所有作業任務</div>
+          </div>
 
-
-    <!-- ================= 視圖 2: 黑板大看板模式 (Board / Zen View) ================= -->
-    <div v-if="currentView === 'board'" class="flex-1 flex flex-col gap-6">
-      
-      <!-- 總體橫幅 -->
-      <div class="bg-gradient-to-r from-indigo-900/70 via-purple-900/60 to-slate-900/70 border border-indigo-700/50 rounded-3xl p-6 text-center shadow-2xl relative overflow-hidden">
-        <div class="relative z-10">
-          <h2 class="text-3xl sm:text-4xl font-black text-white tracking-wide mb-2">
-            📢 羚藝汽泡水 607 今日作業繳交總覽
-          </h2>
-          <p class="text-slate-300 text-base font-medium">
-            請尚未完成作業的同學，於下課或午休前盡速補齊給各科組長！
-          </p>
-        </div>
-      </div>
-
-      <!-- 全科目卡片並列展示 (大字體投影版) -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div v-for="hw in homeworkList" :key="hw.id"
-             :class="hw.isFixed ? 'border-amber-500/40 bg-slate-850' : 'border-slate-700 bg-slate-800/90'"
-             class="rounded-3xl p-6 border shadow-xl flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between gap-2 pb-4 border-b border-slate-700/80 mb-4">
-              <div class="flex items-center gap-2 truncate">
-                <span v-if="hw.isFixed" class="text-xs px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black">第1項</span>
-                <h3 class="text-2xl font-black text-white truncate" :title="hw.title">{{ hw.title }}</h3>
-              </div>
-              <span v-if="getMissingCount(hw.id) === 0" class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black">
-                100% 全交
-              </span>
-              <span v-else class="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-black">
-                缺 {{ getMissingCount(hw.id) }} 人
-              </span>
-            </div>
-
-            <!-- 缺交名單大字顯示 -->
-            <div class="min-h-[140px] flex flex-col justify-center">
-              <div v-if="getMissingList(hw.id).length === 0" class="text-center py-6">
-                <div class="text-5xl mb-2">🎉</div>
-                <div class="text-emerald-400 font-black text-xl">全班全數繳齊</div>
-                <div class="text-slate-400 text-xs mt-1">讚！大家都很有責任感</div>
-              </div>
-
-              <div v-else>
-                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  尚未繳交座號：
-                </div>
-                <div class="flex flex-wrap gap-2.5">
-                  <span v-for="seat in getMissingList(hw.id)" :key="seat"
-                        @click="toggleStudentStatus(hw.id, seat)"
-                        class="w-12 h-12 rounded-2xl bg-rose-600/30 text-rose-200 border-2 border-rose-500/60 font-black text-xl flex items-center justify-center shadow-lg hover:scale-105 transition cursor-pointer"
-                        title="點擊補交">
-                    {{ seat }}
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-for="stu in studentsWithDebt" :key="stu.seat"
+                 class="bg-slate-900/80 border border-rose-500/40 rounded-2xl p-4 flex flex-col justify-between shadow-lg hover:border-rose-400 transition">
+              <div>
+                <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-xl bg-rose-600 text-white font-black text-lg flex items-center justify-center shadow-md">
+                      {{ stu.seat }}
+                    </span>
+                    <span class="font-black text-base text-white">{{ stu.seat }} 號同學</span>
+                  </div>
+                  <span class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-black">
+                    累計欠 {{ stu.debtList.length }} 項
                   </span>
                 </div>
+
+                <!-- 具體欠繳清單 (按日期列出) -->
+                <div class="flex flex-col gap-1.5 my-2">
+                  <div v-for="(debt, dIdx) in stu.debtList" :key="dIdx"
+                       class="text-xs bg-slate-950/70 px-2.5 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between group">
+                    <div class="flex items-center gap-1.5 truncate">
+                      <span class="font-bold text-indigo-400">{{ debt.dayName }}:</span>
+                      <span class="text-slate-200 truncate">{{ debt.hwTitle }}</span>
+                    </div>
+                    <button @click="clearSpecificDebt(debt.dayIso, debt.hwId, stu.seat)"
+                            class="text-[10px] px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-500 text-emerald-300 hover:text-white transition font-bold whitespace-nowrap ml-1"
+                            title="同學補交時點此銷帳">
+                      補交 ✔
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
-
-          <!-- 底部進度 -->
-          <div class="mt-6 pt-4 border-t border-slate-700/60">
-            <div class="flex justify-between text-xs text-slate-400 font-bold mb-1.5">
-              <span>繳交進度</span>
-              <span>{{ getSubmittedCount(hw.id) }} / 26 人 ({{ getSubmitPercentage(hw.id) }}%)</span>
-            </div>
-            <div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
-              <div class="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-300"
-                   :style="{ width: getSubmitPercentage(hw.id) + '%' }"></div>
-            </div>
-          </div>
         </div>
-      </div>
 
-      <!-- 學生個人缺交視圖 (快速查看誰欠多本作業) -->
-      <div class="bg-slate-800/60 rounded-3xl p-6 border border-slate-700/80 shadow-lg">
-        <h3 class="text-lg font-black text-slate-200 mb-4 flex items-center gap-2">
-          <span>🔍 各座號欠繳總覽（點擊座號可看詳細）</span>
-        </h3>
-        <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2">
-          <div v-for="seat in 26" :key="seat"
-               :class="getStudentMissingTasks(seat).length > 0 ? 'bg-rose-950/40 border-rose-500/40 text-rose-300' : (isAbsent(seat) ? 'bg-slate-800/40 border-slate-700 text-slate-500' : 'bg-slate-800/40 border-slate-700/50 text-slate-400')"
-               class="p-2.5 rounded-xl border text-center transition">
-            <div class="font-black text-lg">{{ seat }} 號</div>
-            <div v-if="isAbsent(seat)" class="text-[11px] text-amber-400 font-bold">請假</div>
-            <div v-else-if="getStudentMissingTasks(seat).length > 0" class="text-[11px] font-bold text-rose-400">
-              欠 {{ getStudentMissingTasks(seat).length }} 項
-            </div>
-            <div v-else class="text-[11px] text-emerald-400 font-medium">全交 ✔</div>
-          </div>
+        <!-- 全班 1 ~ 26 號本週週矩陣一覽大表格 (Weekly Matrix Table) -->
+        <div class="bg-slate-800/70 border border-slate-700/80 rounded-3xl p-6 shadow-xl overflow-x-auto">
+          <h3 class="text-lg font-black text-white mb-4 flex items-center gap-2">
+            <span>📅 全班座號 (1 ~ 26 號) 本週交聯一覽表</span>
+          </h3>
+
+          <table class="w-full text-left text-xs sm:text-sm border-collapse min-w-[700px]">
+            <thead>
+              <tr class="border-b border-slate-700 text-slate-400 uppercase tracking-wider">
+                <th class="py-3 px-3 font-bold w-16 text-center">座號</th>
+                <th v-for="day in weekDays" :key="day.iso" class="py-3 px-3 font-bold text-center">
+                  {{ day.name }} ({{ day.shortDate }})
+                </th>
+                <th class="py-3 px-3 font-bold text-center w-28">本週總欠繳</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-850">
+              <tr v-for="seat in 26" :key="seat"
+                  :class="getStudentTotalDebt(seat).length > 0 ? 'bg-rose-950/15 hover:bg-rose-950/30' : 'hover:bg-slate-800/40'"
+                  class="transition">
+                
+                <!-- 座號 -->
+                <td class="py-3 px-3 font-black text-center text-sm">
+                  <span :class="getStudentTotalDebt(seat).length > 0 ? 'text-rose-400 font-black' : 'text-slate-300'">
+                    {{ seat }} 號
+                  </span>
+                </td>
+
+                <!-- 週一 ~ 週五 各天狀態 -->
+                <td v-for="day in weekDays" :key="day.iso" class="py-2.5 px-3 text-center">
+                  <template v-if="getDayTaskCount(day.iso) === 0">
+                    <span class="text-slate-600 font-mono">-</span>
+                  </template>
+                  <template v-else-if="isStudentAbsentOnDay(day.iso, seat)">
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-amber-300 border border-amber-500/30">請假</span>
+                  </template>
+                  <template v-else-if="getStudentMissingTasksOnDay(day.iso, seat).length === 0">
+                    <span class="text-emerald-400 font-black text-base" title="全交">✔</span>
+                  </template>
+                  <template v-else>
+                    <span @click="switchDay(day.iso)"
+                          class="px-2 py-0.5 rounded-md bg-rose-600/40 text-rose-300 border border-rose-500/60 font-black text-xs cursor-pointer hover:bg-rose-600/60 transition"
+                          :title="getStudentMissingTasksOnDay(day.iso, seat).map(t => t.title).join(', ')">
+                      欠 {{ getStudentMissingTasksOnDay(day.iso, seat).length }} 項
+                    </span>
+                  </template>
+                </td>
+
+                <!-- 本週累計缺交次數 -->
+                <td class="py-3 px-3 text-center">
+                  <span v-if="getStudentTotalDebt(seat).length === 0" class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                    全齊 👍
+                  </span>
+                  <span v-else class="text-xs px-2.5 py-1 rounded-full bg-rose-500 text-white font-black shadow-md">
+                    欠 {{ getStudentTotalDebt(seat).length }} 項
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-      </div>
 
-    </div>
+      </div>
+    </template>
 
   </main>
 
@@ -449,12 +645,12 @@
     <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-5">
       <div class="flex items-center justify-between">
         <h3 class="text-xl font-black text-white flex items-center gap-2">
-          🩺 設定今日請假座號
+          🩺 設定請假座號（{{ currentDayObject ? currentDayObject.name + ' ' + currentDayObject.shortDate : '' }}）
         </h3>
         <button @click="showAbsentModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
       </div>
       <p class="text-xs text-slate-400">
-        請假同學將在各作業中自動標註為「請假」，不列入缺交催繳名單中。
+        當日請假同學將在該日各作業中自動標註為「請假」，不計入缺交催繳名單中。
       </p>
 
       <!-- 1~26 號切換按鈕 -->
@@ -469,12 +665,12 @@
 
       <div class="flex items-center justify-between pt-3 border-t border-slate-700 text-xs">
         <span class="text-slate-400">
-          已選請假：<strong class="text-amber-300">{{ absentStudents.length > 0 ? absentStudents.join(', ') + ' 號' : '無' }}</strong>
+          已選請假：<strong class="text-amber-300">{{ currentAbsentList.length > 0 ? currentAbsentList.join(', ') + ' 號' : '無' }}</strong>
         </span>
-        <button @click="absentStudents = []" class="text-slate-400 hover:text-rose-400">全部清除</button>
+        <button @click="clearCurrentAbsent" class="text-slate-400 hover:text-rose-400">全部清除</button>
       </div>
 
-      <button @click="showAbsentModal = false; showToast('已儲存今日請假設定')"
+      <button @click="showAbsentModal = false; showToast('已儲存當日請假設定')"
               class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition shadow-lg shadow-indigo-600/30">
         完成儲存
       </button>
@@ -487,7 +683,7 @@
     <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-5">
       <div class="flex items-center justify-between">
         <h3 class="text-xl font-black text-white flex items-center gap-2">
-          📝 管理今日作業項目
+          📝 編輯作業（{{ currentDayObject ? currentDayObject.name + ' ' + currentDayObject.shortDate : '' }}）
         </h3>
         <button @click="showManageHomeworkModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
       </div>
@@ -495,7 +691,7 @@
       <!-- 新增自訂作業 -->
       <div class="flex gap-2">
         <input v-model="newHwTitle" @keyup.enter="addHomework"
-               placeholder="輸入自訂作業名稱 (例如：社卷第二單元訂正)..."
+               placeholder="輸入自訂作業名稱 (例如：數課84、85)..."
                class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" />
         <button @click="addHomework"
                 class="px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-md">
@@ -505,7 +701,7 @@
 
       <!-- 目前作業列表清單 -->
       <div class="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
-        <div v-for="(hw, idx) in homeworkList" :key="hw.id"
+        <div v-for="(hw, idx) in currentHomeworkList" :key="hw.id"
              :class="hw.isFixed ? 'border-amber-600/40 bg-amber-950/20' : 'border-slate-700/60 bg-slate-900/40'"
              class="flex items-center justify-between p-3 rounded-xl border">
           <div class="flex items-center gap-2">
@@ -532,7 +728,7 @@
   </div>
 
 
-  <!-- ================= 彈出視窗 3: Padlet 同步中心 (全方位保險方案) ================= -->
+  <!-- ================= 彈出視窗 3: Padlet 同步中心 ================= -->
   <div v-if="showSyncOptionsModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-5">
       <div class="flex items-center justify-between">
@@ -560,7 +756,7 @@
         </div>
       </div>
 
-      <!-- 方案 B: 快速貼上 Padlet 聯絡簿內容 (現場救援神器，0.1秒排定) -->
+      <!-- 方案 B: 快速貼上 Padlet 聯絡簿內容 -->
       <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700 flex flex-col gap-3">
         <div class="font-bold text-sm text-slate-200 flex items-center justify-between">
           <span>📋 方案二：貼上 Padlet 聯絡簿（現場 0 秒極速解析）</span>
@@ -641,16 +837,80 @@
 </div>
 
 <script>
-const { createApp, ref, computed, onMounted } = Vue;
+const { createApp, ref, computed, onMounted, watch } = Vue;
 
 createApp({
   setup() {
-    // 預設日期（今日）
-    const today = new Date();
-    const formattedDate = computed(() => {
-      const days = ['日', '一', '二', '三', '四', '五', '六'];
-      return `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()} (週${days[today.getDay()]})`;
+    // 取得當前真實日期
+    const now = new Date();
+    const getIsoDate = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const date = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${date}`;
+    };
+
+    const todayIso = getIsoDate(now);
+
+    // 週次偏移量 (0 代表本週，-1 代表上一週，1 代表下一週)
+    const weekOffset = ref(0);
+
+    // 計算當前週的週一至週五
+    const weekDays = computed(() => {
+      const targetDate = new Date(now);
+      targetDate.setDate(targetDate.getDate() + (weekOffset.value * 7));
+      
+      const dayOfWeek = targetDate.getDay(); // 0 是週日, 1 是週一...
+      const monday = new Date(targetDate);
+      monday.setDate(targetDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
+      const days = [];
+      const names = ['週一', '週二', '週三', '週四', '週五'];
+
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        days.push({
+          name: names[i],
+          iso: getIsoDate(d),
+          shortDate: `${d.getMonth() + 1}/${d.getDate()}`
+        });
+      }
+      return days;
     });
+
+    const isCurrentWeek = computed(() => weekOffset.value === 0);
+
+    const weekLabel = computed(() => {
+      if (weekDays.value.length < 5) return '';
+      const first = weekDays.value[0];
+      const last = weekDays.value[4];
+      return `${first.shortDate} ~ ${last.shortDate}`;
+    });
+
+    // 當前選取的分頁標籤：可能是某天的 iso 字串（如 '2026-11-10'），或 'summary'（本週彙整總表）
+    const activeTab = ref(todayIso);
+
+    // 檢查 activeTab 是否在當前週內，若不在且不是 summary，預設選中當前週的第一天
+    const currentDayObject = computed(() => {
+      return weekDays.value.find(d => d.iso === activeTab.value) || null;
+    });
+
+    const changeWeek = (offset) => {
+      weekOffset.value += offset;
+      if (activeTab.value !== 'summary') {
+        activeTab.value = weekDays.value[0].iso;
+      }
+    };
+
+    const resetToCurrentWeek = () => {
+      weekOffset.value = 0;
+      activeTab.value = todayIso;
+    };
+
+    const switchDay = (iso) => {
+      activeTab.value = iso;
+    };
 
     // 視圖狀態：'check'（組長點選）或 'board'（黑板大看板）
     const currentView = ref('check');
@@ -665,44 +925,321 @@ createApp({
     const newHwTitle = ref('');
     const pasteContent = ref('');
 
-    // 請假學生名單（座號陣列）
-    const absentStudents = ref([]);
-
-    // 作業項目預設（第一項固定為「聯絡簿」，接著為 1111 最新作業）
-    const homeworkList = ref([
-      { id: 'hw_contact_book', title: '聯絡簿', isFixed: true },
-      { id: 'hw_1', title: '國L7自形七字詩4、5', isFixed: false }
-    ]);
-
-    // 當前選取的作業 ID (預設先選第一項：聯絡簿)
-    const activeHwId = ref('hw_contact_book');
-    const currentHw = computed(() => homeworkList.value.find(h => h.id === activeHwId.value) || homeworkList.value[0]);
-
-    // 繳交狀態記錄表：key 是 `${hwId}_${seat}`，值為 'submitted' | 'missing'
-    const records = ref({});
-
     // Padlet 同步相關狀態
-    const syncStatus = ref('idle'); // 'idle' | 'syncing' | 'success' | 'error'
+    const syncStatus = ref('idle');
     const padletLatestDate = ref('1111');
     const detectedPadletPost = ref({ title: '', date: '' });
     const detectedTasks = ref([]);
 
-    // 清理與判定作業項目文字
+    // 🌟 全系統每日數據存儲中心 (Key: isoDate)
+    // 每個元素包含 { homeworkList, records, absentStudents, activeHwId }
+    const allDaysData = ref({});
+
+    // 輔助函式：確保某天的數據結構存在
+    const ensureDayData = (iso) => {
+      if (!allDaysData.value[iso]) {
+        // 預設第一項固定為聯絡簿
+        let defaultList = [
+          { id: 'hw_contact_book', title: '聯絡簿', isFixed: true }
+        ];
+
+        // 若為今日 11/10，加入預設範例
+        if (iso === '2026-11-10') {
+          defaultList.push(
+            { id: 'hw_1', title: '數習 64、66', isFixed: false },
+            { id: 'hw_2', title: '國L7字形七字詩 1-3', isFixed: false },
+            { id: 'hw_3', title: '數重 40', isFixed: false }
+          );
+        } else if (iso === '2026-11-11') {
+          defaultList.push(
+            { id: 'hw_1', title: '國L7自形七字詩4、5', isFixed: false }
+          );
+        }
+
+        allDaysData.value[iso] = {
+          homeworkList: defaultList,
+          records: {},
+          absentStudents: [],
+          activeHwId: 'hw_contact_book'
+        };
+      }
+      return allDaysData.value[iso];
+    };
+
+    // 取得當前選定天的資料
+    const currentActiveDayData = computed(() => {
+      if (!currentDayObject.value) return null;
+      return ensureDayData(currentDayObject.value.iso);
+    });
+
+    const currentHomeworkList = computed(() => {
+      return currentActiveDayData.value ? currentActiveDayData.value.homeworkList : [];
+    });
+
+    const currentAbsentList = computed(() => {
+      return currentActiveDayData.value ? currentActiveDayData.value.absentStudents : [];
+    });
+
+    const activeHwId = computed({
+      get() {
+        if (!currentActiveDayData.value) return 'hw_contact_book';
+        return currentActiveDayData.value.activeHwId || (currentHomeworkList.value[0]?.id || 'hw_contact_book');
+      },
+      set(val) {
+        if (currentActiveDayData.value) {
+          currentActiveDayData.value.activeHwId = val;
+          saveAllToStorage();
+        }
+      }
+    });
+
+    const currentHw = computed(() => {
+      return currentHomeworkList.value.find(h => h.id === activeHwId.value) || currentHomeworkList.value[0];
+    });
+
+    // 狀態存取
+    const isAbsent = (seat) => {
+      return currentAbsentList.value.includes(seat);
+    };
+
+    const isStudentAbsentOnDay = (iso, seat) => {
+      const day = allDaysData.value[iso];
+      return day ? day.absentStudents.includes(seat) : false;
+    };
+
+    const toggleAbsent = (seat) => {
+      if (!currentActiveDayData.value) return;
+      const list = currentActiveDayData.value.absentStudents;
+      if (list.includes(seat)) {
+        currentActiveDayData.value.absentStudents = list.filter(s => s !== seat);
+      } else {
+        list.push(seat);
+        list.sort((a, b) => a - b);
+      }
+      saveAllToStorage();
+      playClickSound();
+    };
+
+    const clearCurrentAbsent = () => {
+      if (currentActiveDayData.value) {
+        currentActiveDayData.value.absentStudents = [];
+        saveAllToStorage();
+      }
+    };
+
+    const getStatus = (hwId, seat) => {
+      if (isAbsent(seat)) return 'absent';
+      if (!currentActiveDayData.value) return 'submitted';
+      const key = `${hwId}_${seat}`;
+      return currentActiveDayData.value.records[key] === 'missing' ? 'missing' : 'submitted';
+    };
+
+    // 切換座號已交 / 缺交
+    const toggleStudentStatus = (hwId, seat) => {
+      if (isAbsent(seat) || !currentActiveDayData.value) return;
+      const key = `${hwId}_${seat}`;
+      const rec = currentActiveDayData.value.records;
+      const current = rec[key] === 'missing' ? 'missing' : 'submitted';
+
+      if (current === 'submitted') {
+        rec[key] = 'missing';
+        playClickSound('missing');
+      } else {
+        rec[key] = 'submitted';
+        playClickSound('click');
+        if (getMissingCount(hwId) === 0) {
+          triggerConfetti();
+          playClickSound('complete');
+        }
+      }
+      saveAllToStorage();
+    };
+
+    // 座號按鈕樣式
+    const getSeatButtonClass = (hwId, seat) => {
+      if (isAbsent(seat)) {
+        return 'bg-slate-850 border-slate-700/60 text-slate-500 cursor-not-allowed opacity-50';
+      }
+      const st = getStatus(hwId, seat);
+      if (st === 'missing') {
+        return 'bg-rose-600 hover:bg-rose-500 border-rose-400 text-white ring-4 ring-rose-500/30 font-black scale-[0.98] shadow-rose-900/50';
+      }
+      return 'bg-emerald-700/80 hover:bg-emerald-600/90 border-emerald-500/60 text-white font-bold hover:shadow-lg hover:shadow-emerald-950';
+    };
+
+    // 缺交統計
+    const getMissingList = (hwId) => {
+      if (!currentActiveDayData.value) return [];
+      const list = [];
+      for (let seat = 1; seat <= 26; seat++) {
+        if (!isAbsent(seat) && getStatus(hwId, seat) === 'missing') {
+          list.push(seat);
+        }
+      }
+      return list;
+    };
+
+    const getMissingCount = (hwId) => getMissingList(hwId).length;
+
+    const getSubmittedCount = (hwId) => {
+      if (!currentActiveDayData.value) return 26;
+      let count = 0;
+      for (let seat = 1; seat <= 26; seat++) {
+        if (!isAbsent(seat) && getStatus(hwId, seat) === 'submitted') {
+          count++;
+        }
+      }
+      return count;
+    };
+
+    const getSubmitPercentage = (hwId) => {
+      const total = 26 - currentAbsentList.value.length;
+      if (total <= 0) return 100;
+      return Math.round((getSubmittedCount(hwId) / total) * 100);
+    };
+
+    // 批次操作
+    const markAllSubmitted = (hwId) => {
+      if (!currentActiveDayData.value) return;
+      for (let seat = 1; seat <= 26; seat++) {
+        currentActiveDayData.value.records[`${hwId}_${seat}`] = 'submitted';
+      }
+      saveAllToStorage();
+      triggerConfetti();
+      playClickSound('complete');
+      showToast('已將本科設為「全部已交」');
+    };
+
+    const markAllMissing = (hwId) => {
+      if (!currentActiveDayData.value) return;
+      if (!confirm('確定要將此作業全部重設為「未繳交」嗎？')) return;
+      for (let seat = 1; seat <= 26; seat++) {
+        currentActiveDayData.value.records[`${hwId}_${seat}`] = 'missing';
+      }
+      saveAllToStorage();
+      showToast('已將本科重設');
+    };
+
+    // 管理作業
+    const addHomework = () => {
+      const title = newHwTitle.value.trim();
+      if (!title || !currentActiveDayData.value) return;
+      const id = 'hw_' + Date.now();
+      currentActiveDayData.value.homeworkList.push({ id, title, isFixed: false });
+      newHwTitle.value = '';
+      activeHwId.value = id;
+      saveAllToStorage();
+      showToast(`已新增作業「${title}」`);
+    };
+
+    const removeHomework = (id) => {
+      if (!currentActiveDayData.value) return;
+      const target = currentActiveDayData.value.homeworkList.find(h => h.id === id);
+      if (target && target.isFixed) {
+        alert('「聯絡簿」為每日固定第一項作業，無法刪除');
+        return;
+      }
+      if (currentActiveDayData.value.homeworkList.length <= 1) {
+        alert('請至少保留一項作業');
+        return;
+      }
+      currentActiveDayData.value.homeworkList = currentActiveDayData.value.homeworkList.filter(h => h.id !== id);
+      if (activeHwId.value === id) {
+        activeHwId.value = currentActiveDayData.value.homeworkList[0].id;
+      }
+      saveAllToStorage();
+      showToast('已刪除作業');
+    };
+
+    // ================= 📊 每週統計核心演算法 =================
+    const getDayTaskCount = (iso) => {
+      const day = allDaysData.value[iso];
+      return day ? day.homeworkList.length : 0;
+    };
+
+    // 取得某天某座號未繳交的作業項目
+    const getStudentMissingTasksOnDay = (iso, seat) => {
+      const day = allDaysData.value[iso];
+      if (!day) return [];
+      if (day.absentStudents.includes(seat)) return [];
+      return day.homeworkList.filter(hw => day.records[`${hw.id}_${seat}`] === 'missing');
+    };
+
+    // 取得某天未繳交人數 (至少有一項未交的人數)
+    const getDayMissingCount = (iso) => {
+      const day = allDaysData.value[iso];
+      if (!day || day.homeworkList.length === 0) return 0;
+      let count = 0;
+      for (let seat = 1; seat <= 26; seat++) {
+        if (!day.absentStudents.includes(seat)) {
+          const hasMissing = day.homeworkList.some(hw => day.records[`${hw.id}_${seat}`] === 'missing');
+          if (hasMissing) count++;
+        }
+      }
+      return count;
+    };
+
+    // 取得某學生本週所有未交項目清單
+    const getStudentTotalDebt = (seat) => {
+      const list = [];
+      weekDays.value.forEach(day => {
+        const missing = getStudentMissingTasksOnDay(day.iso, seat);
+        missing.forEach(hw => {
+          list.push({
+            dayIso: day.iso,
+            dayName: day.name,
+            dayShortDate: day.shortDate,
+            hwId: hw.id,
+            hwTitle: hw.title
+          });
+        });
+      });
+      return list;
+    };
+
+    // 本週有欠繳作業的學生列表
+    const studentsWithDebt = computed(() => {
+      const list = [];
+      for (let seat = 1; seat <= 26; seat++) {
+        const debtList = getStudentTotalDebt(seat);
+        if (debtList.length > 0) {
+          list.push({ seat, debtList });
+        }
+      }
+      return list;
+    });
+
+    const totalWeeklyMissingCount = computed(() => {
+      let count = 0;
+      for (let seat = 1; seat <= 26; seat++) {
+        count += getStudentTotalDebt(seat).length;
+      }
+      return count;
+    });
+
+    const cleanStudentsCount = computed(() => 26 - studentsWithDebt.value.length);
+
+    const hasAnyTasksThisWeek = computed(() => {
+      return weekDays.value.some(day => getDayTaskCount(day.iso) > 0);
+    });
+
+    // 快捷銷帳：在總表中直接清除特定作業欠繳
+    const clearSpecificDebt = (dayIso, hwId, seat) => {
+      const day = allDaysData.value[dayIso];
+      if (day) {
+        day.records[`${hwId}_${seat}`] = 'submitted';
+        saveAllToStorage();
+        playClickSound('click');
+        showToast(`已為 ${seat} 號補交 ${day.name} 作業！`);
+      }
+    };
+
+    // ================= Padlet 同步中心 =================
     const cleanTaskText = (text) => {
       if (!text) return '';
       return text.trim().replace(/^[\d\(\)（）\.\、\s]+/, '').trim();
     };
 
-    const isLikelyHomework = (text) => {
-      const notHwKeywords = ['穿班服', '考直笛', '明天考', '下週考', '期中考', '放假', '通知單', '帶作業'];
-      const hwKeywords = ['習', '本', '卷', '重', '課', '作', '練', '詩', '背', '讀', '訂正', '心智圖', '交', '聯絡簿'];
-      
-      if (notHwKeywords.some(k => text.includes(k))) return false;
-      if (hwKeywords.some(k => text.includes(k))) return true;
-      return true;
-    };
-
-    // 🌟 方案一：從本機/GitHub 倉庫讀取同源的 homework.json (0毫秒延遲，0 CORS 錯誤)
     const fetchHomeworkJson = async (manualTrigger = false) => {
       syncStatus.value = 'syncing';
       try {
@@ -713,7 +1250,6 @@ createApp({
             padletLatestDate.value = data.postTitle || '最新';
             detectedPadletPost.value = { title: data.postTitle || '最新', date: data.pubDate || '' };
             
-            // 確保第一項是聯絡簿
             let list = [...data.homeworkList];
             if (!list.some(h => h.title === '聯絡簿')) {
               list.unshift({ id: 'hw_contact_book', title: '聯絡簿', isFixed: true });
@@ -728,13 +1264,9 @@ createApp({
 
             syncStatus.value = 'success';
 
-            const lastTitle = localStorage.getItem('607_last_padlet_title');
             if (manualTrigger) {
               showSyncConfirmModal.value = true;
               showSyncOptionsModal.value = false;
-            } else if (lastTitle !== data.postTitle) {
-              // 換日自動彈窗提示
-              showSyncConfirmModal.value = true;
             }
             return;
           }
@@ -746,7 +1278,6 @@ createApp({
       if (manualTrigger) showToast('已維持目前作業清單');
     };
 
-    // 🌟 方案二：貼上 Padlet 聯絡簿文字快速解析 (教室現場 0 秒救星)
     const parsePastedText = () => {
       const text = pasteContent.value.trim();
       if (!text) {
@@ -763,7 +1294,6 @@ createApp({
         return;
       }
 
-      // 第一項固定為聯絡簿
       const newItems = [
         { id: 'hw_contact_book', title: '聯絡簿', isFixed: true }
       ];
@@ -778,17 +1308,18 @@ createApp({
         }
       });
 
-      homeworkList.value = newItems;
-      activeHwId.value = 'hw_contact_book';
+      if (currentActiveDayData.value) {
+        currentActiveDayData.value.homeworkList = newItems;
+        activeHwId.value = 'hw_contact_book';
+      }
       pasteContent.value = '';
-      saveToStorage();
+      saveAllToStorage();
       showSyncOptionsModal.value = false;
-      showToast('已成功解析並排定今日作業！');
+      showToast('已成功解析並排定作業！');
       triggerConfetti();
       playClickSound('complete');
     };
 
-    // 套用確認彈窗的作業項目
     const applyDetectedHomework = () => {
       const selected = detectedTasks.value.filter(t => t.selected);
       if (selected.length === 0) {
@@ -810,204 +1341,52 @@ createApp({
         }
       });
 
-      homeworkList.value = finalItems;
-      activeHwId.value = 'hw_contact_book';
+      if (currentActiveDayData.value) {
+        currentActiveDayData.value.homeworkList = finalItems;
+        activeHwId.value = 'hw_contact_book';
+      }
       
-      localStorage.setItem('607_last_padlet_title', detectedPadletPost.value.title);
-      saveToStorage();
+      saveAllToStorage();
       showSyncConfirmModal.value = false;
       showToast(`已成功套用【${detectedPadletPost.value.title}】作業！`);
       triggerConfetti();
       playClickSound('complete');
     };
 
-    // 音效合成播放 (Web Audio API)
-    const playClickSound = (type = 'click') => {
-      if (!soundEnabled.value) return;
-      try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-
-        if (type === 'missing') {
-          osc.frequency.setValueAtTime(320, audioCtx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.12);
-          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
-          osc.start();
-          osc.stop(audioCtx.currentTime + 0.12);
-        } else if (type === 'complete') {
-          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
-          osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08); // E5
-          osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.16); // G5
-          gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-          osc.start();
-          osc.stop(audioCtx.currentTime + 0.3);
+    // 一鍵複製通報名單 (單日 vs 本週總表)
+    const copyReport = () => {
+      if (activeTab.value === 'summary') {
+        // 複製本週未交總清單
+        let text = `📢【607 本週作業未繳清算提醒】(${weekLabel.value})\n`;
+        text += `------------------------------------------\n`;
+        if (studentsWithDebt.value.length === 0) {
+          text += `🎉 太棒了！本週全班所有作業全數繳齊，表現優良！\n`;
         } else {
-          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
-          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
-          osc.start();
-          osc.stop(audioCtx.currentTime + 0.08);
+          text += `⚠️ 本週尚未繳清同學名單（共 ${studentsWithDebt.value.length} 人）：\n\n`;
+          studentsWithDebt.value.forEach(stu => {
+            const debts = stu.debtList.map(d => `${d.dayName} [${d.hwTitle}]`).join('、');
+            text += `• ${stu.seat} 號：${debts} (欠 ${stu.debtList.length} 項)\n`;
+          });
+          text += `------------------------------------------\n`;
+          text += `其餘同學本週作業已全數繳齊！\n請尚未繳清的同學務必於放學前完成補交。`;
         }
-      } catch (e) {
-        // audio context blocked
-      }
-    };
 
-    // 判斷某座號是否請假
-    const isAbsent = (seat) => absentStudents.value.includes(seat);
-
-    // 切換請假狀態
-    const toggleAbsent = (seat) => {
-      if (absentStudents.value.includes(seat)) {
-        absentStudents.value = absentStudents.value.filter(s => s !== seat);
-      } else {
-        absentStudents.value.push(seat);
-        absentStudents.value.sort((a, b) => a - b);
-      }
-      playClickSound();
-    };
-
-    // 取得學生某作業狀態
-    const getStatus = (hwId, seat) => {
-      if (isAbsent(seat)) return 'absent';
-      const key = `${hwId}_${seat}`;
-      return records.value[key] === 'missing' ? 'missing' : 'submitted';
-    };
-
-    // 切換學生已交 / 缺交狀態 (組長專用核心點擊事件)
-    const toggleStudentStatus = (hwId, seat) => {
-      if (isAbsent(seat)) return;
-      const key = `${hwId}_${seat}`;
-      const current = records.value[key] === 'missing' ? 'missing' : 'submitted';
-      
-      if (current === 'submitted') {
-        records.value[key] = 'missing';
-        playClickSound('missing');
-      } else {
-        records.value[key] = 'submitted';
-        playClickSound('click');
-        
-        // 如果補交後剛好全滿，放煙火慶祝
-        if (getMissingCount(hwId) === 0) {
-          triggerConfetti();
-          playClickSound('complete');
-        }
-      }
-      saveToStorage();
-    };
-
-    // 座號按鈕樣式 (綠 / 紅 / 灰)
-    const getSeatButtonClass = (hwId, seat) => {
-      if (isAbsent(seat)) {
-        return 'bg-slate-850 border-slate-700/60 text-slate-500 cursor-not-allowed opacity-50';
-      }
-      const st = getStatus(hwId, seat);
-      if (st === 'missing') {
-        return 'bg-rose-600 hover:bg-rose-500 border-rose-400 text-white ring-4 ring-rose-500/30 font-black scale-[0.98] shadow-rose-900/50';
-      }
-      return 'bg-emerald-700/80 hover:bg-emerald-600/90 border-emerald-500/60 text-white font-bold hover:shadow-lg hover:shadow-emerald-950';
-    };
-
-    // 取得缺交人數與名單
-    const getMissingList = (hwId) => {
-      const list = [];
-      for (let seat = 1; seat <= 26; seat++) {
-        if (!isAbsent(seat) && getStatus(hwId, seat) === 'missing') {
-          list.push(seat);
-        }
-      }
-      return list;
-    };
-
-    const getMissingCount = (hwId) => getMissingList(hwId).length;
-
-    const getSubmittedCount = (hwId) => {
-      let count = 0;
-      for (let seat = 1; seat <= 26; seat++) {
-        if (!isAbsent(seat) && getStatus(hwId, seat) === 'submitted') {
-          count++;
-        }
-      }
-      return count;
-    };
-
-    const getSubmitPercentage = (hwId) => {
-      const total = 26 - absentStudents.value.length;
-      if (total <= 0) return 100;
-      return Math.round((getSubmittedCount(hwId) / total) * 100);
-    };
-
-    // 取得某位學生未繳交的作業清單
-    const getStudentMissingTasks = (seat) => {
-      if (isAbsent(seat)) return [];
-      return homeworkList.value.filter(hw => getStatus(hw.id, seat) === 'missing');
-    };
-
-    // 批次操作
-    const markAllSubmitted = (hwId) => {
-      for (let seat = 1; seat <= 26; seat++) {
-        records.value[`${hwId}_${seat}`] = 'submitted';
-      }
-      saveToStorage();
-      triggerConfetti();
-      playClickSound('complete');
-      showToast('已將本科設為「全部已交」');
-    };
-
-    const markAllMissing = (hwId) => {
-      if (!confirm('確定要將此作業全部重設為「未繳交」嗎？')) return;
-      for (let seat = 1; seat <= 26; seat++) {
-        records.value[`${hwId}_${seat}`] = 'missing';
-      }
-      saveToStorage();
-      showToast('已將本科重設');
-    };
-
-    // 管理作業
-    const addHomework = () => {
-      const title = newHwTitle.value.trim();
-      if (!title) return;
-      const id = 'hw_' + Date.now();
-      homeworkList.value.push({ id, title, isFixed: false });
-      newHwTitle.value = '';
-      activeHwId.value = id;
-      saveToStorage();
-      showToast(`已新增作業「${title}」`);
-    };
-
-    const removeHomework = (id) => {
-      const target = homeworkList.value.find(h => h.id === id);
-      if (target && target.isFixed) {
-        alert('「聯絡簿」為每日固定第一項作業，無法刪除');
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('已複製本週未交總清單！可直接發送');
+        }).catch(() => alert(text));
         return;
       }
-      if (homeworkList.value.length <= 1) {
-        alert('請至少保留一項作業');
-        return;
-      }
-      homeworkList.value = homeworkList.value.filter(h => h.id !== id);
-      if (activeHwId.value === id) {
-        activeHwId.value = homeworkList.value[0].id;
-      }
-      saveToStorage();
-      showToast('已刪除作業');
-    };
 
-    // 一鍵複製 LINE 通報名單
-    const copyLineReport = () => {
-      let text = `📢【607 今日作業缺交提醒】${formattedDate.value}\n`;
+      // 複製單日清單
+      const day = currentDayObject.value;
+      let text = `📢【607 今日作業缺交提醒】${day ? day.name + ' (' + day.shortDate + ')' : ''}\n`;
       text += `------------------------------------\n`;
-      if (absentStudents.value.length > 0) {
-        text += `🩺 今日請假：${absentStudents.value.join(', ')} 號\n`;
+      if (currentAbsentList.value.length > 0) {
+        text += `🩺 今日請假：${currentAbsentList.value.join(', ')} 號\n`;
       }
       
       let allClean = true;
-      homeworkList.value.forEach(hw => {
+      currentHomeworkList.value.forEach(hw => {
         const missing = getMissingList(hw.id);
         const icon = hw.isFixed ? '📕' : '📘';
         if (missing.length === 0) {
@@ -1026,71 +1405,97 @@ createApp({
 
       navigator.clipboard.writeText(text).then(() => {
         showToast('已複製未交名單到剪貼簿！可直接貼到 LINE');
-      }).catch(() => {
-        alert(text);
-      });
+      }).catch(() => alert(text));
     };
 
-    // 煙火彩帶動畫
+    // 音效合成播放
+    const playClickSound = (type = 'click') => {
+      if (!soundEnabled.value) return;
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'missing') {
+          osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.12);
+        } else if (type === 'complete') {
+          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+          osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08);
+          osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.16);
+          gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.3);
+        } else {
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.08);
+        }
+      } catch (e) {}
+    };
+
     const triggerConfetti = () => {
       if (typeof confetti === 'function') {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
       }
     };
 
-    // 提示通知
     const showToast = (msg) => {
       toastMsg.value = msg;
-      setTimeout(() => {
-        toastMsg.value = '';
-      }, 3000);
+      setTimeout(() => { toastMsg.value = ''; }, 3000);
     };
 
-    // LocalStorage 本地儲存
-    const storageKey = '607_hw_checker_' + today.toISOString().split('T')[0];
-    const saveToStorage = () => {
-      const data = {
-        homeworkList: homeworkList.value,
-        records: records.value,
-        absentStudents: absentStudents.value,
+    // 本地持久化存儲 (整合週次系統)
+    const storageKey = '607_weekly_hw_data_v2';
+    const saveAllToStorage = () => {
+      const payload = {
+        allDaysData: allDaysData.value,
         soundEnabled: soundEnabled.value
       };
-      localStorage.setItem(storageKey, JSON.stringify(data));
+      localStorage.setItem(storageKey, JSON.stringify(payload));
     };
 
-    const loadFromStorage = () => {
+    const loadAllFromStorage = () => {
       const saved = localStorage.getItem(storageKey);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (parsed.homeworkList && parsed.homeworkList.length) {
-            let list = parsed.homeworkList;
-            if (!list.some(h => h.title === '聯絡簿')) {
-              list.unshift({ id: 'hw_contact_book', title: '聯絡簿', isFixed: true });
-            }
-            homeworkList.value = list;
-          }
-          if (parsed.records) records.value = parsed.records;
-          if (parsed.absentStudents) absentStudents.value = parsed.absentStudents;
+          if (parsed.allDaysData) allDaysData.value = parsed.allDaysData;
           if (parsed.soundEnabled !== undefined) soundEnabled.value = parsed.soundEnabled;
         } catch (e) {
           console.error('Failed to parse storage', e);
         }
       }
+      // 確保本週每天資料皆已初始化
+      weekDays.value.forEach(d => ensureDayData(d.iso));
     };
 
     onMounted(() => {
-      loadFromStorage();
-      // 網頁載入時自動從同源 homework.json 檢查雲端最新同步
+      loadAllFromStorage();
       fetchHomeworkJson(false);
     });
 
     return {
-      formattedDate,
+      now,
+      todayIso,
+      weekDays,
+      weekLabel,
+      isCurrentWeek,
+      weekOffset,
+      changeWeek,
+      resetToCurrentWeek,
+      activeTab,
+      currentDayObject,
+      switchDay,
       currentView,
       toastMsg,
       soundEnabled,
@@ -1100,8 +1505,8 @@ createApp({
       showSyncConfirmModal,
       newHwTitle,
       pasteContent,
-      absentStudents,
-      homeworkList,
+      currentHomeworkList,
+      currentAbsentList,
       activeHwId,
       currentHw,
       syncStatus,
@@ -1109,7 +1514,9 @@ createApp({
       detectedPadletPost,
       detectedTasks,
       isAbsent,
+      isStudentAbsentOnDay,
       toggleAbsent,
+      clearCurrentAbsent,
       getStatus,
       toggleStudentStatus,
       getSeatButtonClass,
@@ -1117,15 +1524,23 @@ createApp({
       getMissingCount,
       getSubmittedCount,
       getSubmitPercentage,
-      getStudentMissingTasks,
       markAllSubmitted,
       markAllMissing,
       addHomework,
       removeHomework,
+      getDayTaskCount,
+      getDayMissingCount,
+      getStudentMissingTasksOnDay,
+      getStudentTotalDebt,
+      studentsWithDebt,
+      totalWeeklyMissingCount,
+      cleanStudentsCount,
+      hasAnyTasksThisWeek,
+      clearSpecificDebt,
       fetchHomeworkJson,
       parsePastedText,
       applyDetectedHomework,
-      copyLineReport,
+      copyReport,
       playClickSound,
       showToast
     };
