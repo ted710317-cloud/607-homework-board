@@ -115,13 +115,13 @@
             
             <!-- Padlet 同步狀態徽章 -->
             <span v-if="syncStatus === 'syncing'" class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium flex items-center gap-1.5 animate-pulse">
-              <span class="w-2 h-2 rounded-full bg-amber-400"></span> Padlet 同步中...
+              <span class="w-2 h-2 rounded-full bg-amber-400"></span> 讀取中...
             </span>
-            <span v-else-if="syncStatus === 'success'" class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium flex items-center gap-1.5" :title="'Padlet 最新聯絡簿貼文：' + padletLatestDate">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Padlet 連線 ({{ padletLatestDate }})
+            <span v-else-if="syncStatus === 'success'" class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium flex items-center gap-1.5 cursor-pointer hover:bg-emerald-500/30" @click="showSyncOptionsModal = true" :title="'點擊查看同步資訊。最新貼文：' + padletLatestDate">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Padlet 已同步 ({{ padletLatestDate }})
             </span>
-            <span v-else class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-medium flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full bg-slate-500"></span> 本地快取模式
+            <span v-else class="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 font-medium flex items-center gap-1.5 cursor-pointer hover:bg-slate-700" @click="showSyncOptionsModal = true">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span> 本地模式 (點此同步)
             </span>
           </div>
 
@@ -140,11 +140,9 @@
       <!-- 右側工具快捷操作列 -->
       <div class="flex items-center flex-wrap gap-2">
         
-        <!-- 自動同步 Padlet 按鈕 (方案 B 核心) -->
-        <button @click="fetchPadletHomework(true)"
-                :disabled="syncStatus === 'syncing'"
-                class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition flex items-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-50"
-                title="重新向 Padlet 抓取最新聯絡簿">
+        <!-- 自動同步 Padlet 按鈕 (打開同步中心) -->
+        <button @click="showSyncOptionsModal = true"
+                class="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition flex items-center gap-1.5 shadow-sm active:scale-95">
           <span :class="{'animate-spin': syncStatus === 'syncing'}">🔄</span>
           <span>同步 Padlet</span>
         </button>
@@ -494,20 +492,6 @@
         <button @click="showManageHomeworkModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
       </div>
 
-      <!-- 從 Padlet 自動同步按鈕 -->
-      <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-700/80 flex items-center justify-between gap-3">
-        <div>
-          <div class="font-bold text-sm text-slate-200">🔄 重新抓取 Padlet 聯絡簿</div>
-          <div class="text-xs text-slate-400">連線至 Padlet 讀取最新聯絡簿（目前偵測貼文：{{ padletLatestDate || '未連線' }}）</div>
-        </div>
-        <button @click="fetchPadletHomework(true)"
-                :disabled="syncStatus === 'syncing'"
-                class="px-3.5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1 shadow-md disabled:opacity-50">
-          <span :class="{'animate-spin': syncStatus === 'syncing'}">🔄</span>
-          <span>立即同步</span>
-        </button>
-      </div>
-
       <!-- 新增自訂作業 -->
       <div class="flex gap-2">
         <input v-model="newHwTitle" @keyup.enter="addHomework"
@@ -548,7 +532,63 @@
   </div>
 
 
-  <!-- ================= 彈出視窗 3: Padlet 同步確認對話框 (Smart Sync) ================= -->
+  <!-- ================= 彈出視窗 3: Padlet 同步中心 (全方位保險方案) ================= -->
+  <div v-if="showSyncOptionsModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          🔄 Padlet 聯絡簿同步中心
+        </h3>
+        <button @click="showSyncOptionsModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <!-- 方案 A: 雲端極速同源同步 (homework.json) -->
+      <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <div class="font-bold text-sm text-slate-200 flex items-center gap-1.5">
+            <span>☁️ 方案一：從雲端同步最新作業 (零延遲、免Proxy)</span>
+          </div>
+          <button @click="fetchHomeworkJson(true)"
+                  :disabled="syncStatus === 'syncing'"
+                  class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1 shadow-md disabled:opacity-50">
+            <span :class="{'animate-spin': syncStatus === 'syncing'}">🔄</span>
+            <span>立即更新</span>
+          </button>
+        </div>
+        <div class="text-xs text-slate-400">
+          目前已排程自動向 Padlet 抓取（目前版本：<strong class="text-indigo-300">{{ padletLatestDate }}</strong>）
+        </div>
+      </div>
+
+      <!-- 方案 B: 快速貼上 Padlet 聯絡簿內容 (現場救援神器，0.1秒排定) -->
+      <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700 flex flex-col gap-3">
+        <div class="font-bold text-sm text-slate-200 flex items-center justify-between">
+          <span>📋 方案二：貼上 Padlet 聯絡簿（現場 0 秒極速解析）</span>
+          <span class="text-[11px] text-amber-400 font-bold">★ 推薦最快方式</span>
+        </div>
+        <p class="text-xs text-slate-400">
+          直接複製 Padlet 上的聯絡簿貼文文字貼在下方，系統會自動辨識並將第一項排為「聯絡簿」：
+        </p>
+        <textarea v-model="pasteContent" rows="3"
+                  placeholder="例如直接貼上：&#10;1. 國L7自形七字詩4、5&#10;2. 數習68、69..."
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"></textarea>
+        
+        <div class="flex justify-end gap-2">
+          <button @click="parsePastedText"
+                  class="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-md active:scale-95">
+            ✨ 智慧解析並套用今日作業
+          </button>
+        </div>
+      </div>
+
+      <button @click="showSyncOptionsModal = false"
+              class="w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition">
+        關閉視窗
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= 彈出視窗 4: 偵測到新作業確認對話框 ================= -->
   <div v-if="showSyncConfirmModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-5">
       <div class="flex items-center justify-between">
@@ -601,7 +641,7 @@
 </div>
 
 <script>
-const { createApp, ref, computed, onMounted, watch } = Vue;
+const { createApp, ref, computed, onMounted } = Vue;
 
 createApp({
   setup() {
@@ -620,18 +660,18 @@ createApp({
     // 彈窗狀態
     const showAbsentModal = ref(false);
     const showManageHomeworkModal = ref(false);
+    const showSyncOptionsModal = ref(false);
     const showSyncConfirmModal = ref(false);
     const newHwTitle = ref('');
+    const pasteContent = ref('');
 
     // 請假學生名單（座號陣列）
     const absentStudents = ref([]);
 
-    // 作業項目預設（第一項固定為「聯絡簿」，接著為今日 Padlet 作業）
+    // 作業項目預設（第一項固定為「聯絡簿」，接著為 1111 最新作業）
     const homeworkList = ref([
       { id: 'hw_contact_book', title: '聯絡簿', isFixed: true },
-      { id: 'hw_1', title: '數習 64、66' },
-      { id: 'hw_2', title: '國L7字形七字詩 1-3' },
-      { id: 'hw_3', title: '數重 40' }
+      { id: 'hw_1', title: '國L7自形七字詩4、5', isFixed: false }
     ]);
 
     // 當前選取的作業 ID (預設先選第一項：聯絡簿)
@@ -643,18 +683,9 @@ createApp({
 
     // Padlet 同步相關狀態
     const syncStatus = ref('idle'); // 'idle' | 'syncing' | 'success' | 'error'
-    const padletLatestDate = ref('1110');
+    const padletLatestDate = ref('1111');
     const detectedPadletPost = ref({ title: '', date: '' });
     const detectedTasks = ref([]);
-
-    // Padlet RSS 來源設定
-    const padletFeedUrl = 'https://padlet.com/padlets/9bt5kg1ms2i2yy47/exports/feed.xml?token=ec86762432214910bfe2d6054e6a5af0';
-    
-    // 多重 CORS 代理清單 (確保不會因為單一代理當機而失效)
-    const corsProxies = [
-      (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-      (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`
-    ];
 
     // 清理與判定作業項目文字
     const cleanTaskText = (text) => {
@@ -671,125 +702,93 @@ createApp({
       return true;
     };
 
-    // 從 Padlet RSS 抓取與解析作業 (方案 B 核心)
-    const fetchPadletHomework = async (manualTrigger = false) => {
+    // 🌟 方案一：從本機/GitHub 倉庫讀取同源的 homework.json (0毫秒延遲，0 CORS 錯誤)
+    const fetchHomeworkJson = async (manualTrigger = false) => {
       syncStatus.value = 'syncing';
-      let xmlText = null;
+      try {
+        const res = await fetch('homework.json?t=' + Date.now(), { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.homeworkList && data.homeworkList.length) {
+            padletLatestDate.value = data.postTitle || '最新';
+            detectedPadletPost.value = { title: data.postTitle || '最新', date: data.pubDate || '' };
+            
+            // 確保第一項是聯絡簿
+            let list = [...data.homeworkList];
+            if (!list.some(h => h.title === '聯絡簿')) {
+              list.unshift({ id: 'hw_contact_book', title: '聯絡簿', isFixed: true });
+            }
 
-      // 依序嘗試代理伺服器
-      for (const getProxyUrl of corsProxies) {
-        try {
-          const proxyUrl = getProxyUrl(padletFeedUrl);
-          const response = await fetch(proxyUrl, { cache: 'no-cache' });
-          if (response.ok) {
-            xmlText = await response.text();
-            if (xmlText && xmlText.includes('<rss')) break;
+            detectedTasks.value = list.map(t => ({
+              title: t.title,
+              isHomework: true,
+              selected: true,
+              isFixed: t.isFixed || t.title === '聯絡簿'
+            }));
+
+            syncStatus.value = 'success';
+
+            const lastTitle = localStorage.getItem('607_last_padlet_title');
+            if (manualTrigger) {
+              showSyncConfirmModal.value = true;
+              showSyncOptionsModal.value = false;
+            } else if (lastTitle !== data.postTitle) {
+              // 換日自動彈窗提示
+              showSyncConfirmModal.value = true;
+            }
+            return;
           }
-        } catch (e) {
-          console.warn('Proxy failed, trying next...', e);
         }
+      } catch (e) {
+        console.warn('Local homework.json not ready or offline', e);
       }
+      syncStatus.value = 'success';
+      if (manualTrigger) showToast('已維持目前作業清單');
+    };
 
-      if (!xmlText) {
-        syncStatus.value = 'error';
-        if (manualTrigger) showToast('無法連線至 Padlet 伺服器，已使用目前快取');
+    // 🌟 方案二：貼上 Padlet 聯絡簿文字快速解析 (教室現場 0 秒救星)
+    const parsePastedText = () => {
+      const text = pasteContent.value.trim();
+      if (!text) {
+        alert('請先在輸入框貼上 Padlet 聯絡簿內容');
         return;
       }
 
-      try {
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
-        const items = Array.from(xmlDoc.querySelectorAll('item'));
+      const lines = text.split('\n')
+        .map(l => cleanTaskText(l))
+        .filter(l => l.length > 0);
 
-        if (!items || items.length === 0) {
-          syncStatus.value = 'error';
-          return;
-        }
-
-        // 尋找標題帶有日期的聯絡簿貼文 (例如 1110, 1106, 1105)
-        const dateRegex = /^\d{2,4}$|^\d{1,2}\/\d{1,2}$/;
-        let targetItem = null;
-
-        // 從最後一筆往回找最新的聯絡簿貼文
-        for (let i = items.length - 1; i >= 0; i--) {
-          const title = (items[i].querySelector('title')?.textContent || '').trim();
-          if (dateRegex.test(title)) {
-            targetItem = items[i];
-            break;
-          }
-        }
-
-        if (!targetItem) {
-          syncStatus.value = 'success';
-          return;
-        }
-
-        const title = targetItem.querySelector('title')?.textContent?.trim() || '';
-        const pubDate = targetItem.querySelector('pubDate')?.textContent?.trim() || '';
-        const descHtml = targetItem.querySelector('description')?.textContent || '';
-
-        padletLatestDate.value = title;
-        detectedPadletPost.value = { title, date: pubDate };
-
-        // 解析 HTML description
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = descHtml;
-
-        let rawTasks = [];
-        const lis = tempDiv.querySelectorAll('li');
-        if (lis.length > 0) {
-          rawTasks = Array.from(lis).map(li => li.textContent);
-        } else {
-          const ps = tempDiv.querySelectorAll('p');
-          if (ps.length > 0) {
-            rawTasks = Array.from(ps).map(p => p.textContent);
-          } else {
-            rawTasks = tempDiv.textContent.split('\n');
-          }
-        }
-
-        const parsedTasks = rawTasks
-          .map(t => cleanTaskText(t))
-          .filter(t => t.length > 0)
-          .map(t => {
-            const isHw = isLikelyHomework(t);
-            return {
-              title: t,
-              isHomework: isHw,
-              selected: isHw,
-              isFixed: false
-            };
-          });
-
-        // 🌟 確保第一項永遠是「聯絡簿」
-        const taskListWithContact = [
-          {
-            title: '聯絡簿',
-            isHomework: true,
-            selected: true,
-            isFixed: true
-          },
-          ...parsedTasks.filter(t => t.title !== '聯絡簿')
-        ];
-
-        detectedTasks.value = taskListWithContact;
-        syncStatus.value = 'success';
-
-        // 判斷是否需要提示使用者確認套用
-        const lastAppliedTitle = localStorage.getItem('607_last_padlet_title');
-        if (manualTrigger) {
-          showSyncConfirmModal.value = true;
-        } else if (lastAppliedTitle !== title && parsedTasks.length > 0) {
-          // 換日自動彈出確認
-          showSyncConfirmModal.value = true;
-        }
-      } catch (err) {
-        console.error('Failed to parse Padlet XML:', err);
-        syncStatus.value = 'error';
+      if (lines.length === 0) {
+        alert('無法辨識內容，請確認貼上的文字格式');
+        return;
       }
+
+      // 第一項固定為聯絡簿
+      const newItems = [
+        { id: 'hw_contact_book', title: '聯絡簿', isFixed: true }
+      ];
+
+      lines.forEach((line, idx) => {
+        if (line !== '聯絡簿') {
+          newItems.push({
+            id: 'hw_custom_' + idx + '_' + Date.now(),
+            title: line,
+            isFixed: false
+          });
+        }
+      });
+
+      homeworkList.value = newItems;
+      activeHwId.value = 'hw_contact_book';
+      pasteContent.value = '';
+      saveToStorage();
+      showSyncOptionsModal.value = false;
+      showToast('已成功解析並排定今日作業！');
+      triggerConfetti();
+      playClickSound('complete');
     };
 
-    // 套用 Padlet 抓取到的作業項目
+    // 套用確認彈窗的作業項目
     const applyDetectedHomework = () => {
       const selected = detectedTasks.value.filter(t => t.selected);
       if (selected.length === 0) {
@@ -797,13 +796,9 @@ createApp({
         return;
       }
 
-      // 確保「聯絡簿」永遠是第一項
-      let finalItems = [];
-      finalItems.push({
-        id: 'hw_contact_book',
-        title: '聯絡簿',
-        isFixed: true
-      });
+      let finalItems = [
+        { id: 'hw_contact_book', title: '聯絡簿', isFixed: true }
+      ];
 
       selected.forEach((t, idx) => {
         if (t.title !== '聯絡簿') {
@@ -818,11 +813,10 @@ createApp({
       homeworkList.value = finalItems;
       activeHwId.value = 'hw_contact_book';
       
-      // 記錄這次套用的 Padlet 貼文標題
       localStorage.setItem('607_last_padlet_title', detectedPadletPost.value.title);
       saveToStorage();
       showSyncConfirmModal.value = false;
-      showToast(`已成功同步 Padlet「${detectedPadletPost.value.title}」作業（含第一項聯絡簿）！`);
+      showToast(`已成功套用【${detectedPadletPost.value.title}】作業！`);
       triggerConfetti();
       playClickSound('complete');
     };
@@ -1074,7 +1068,6 @@ createApp({
         try {
           const parsed = JSON.parse(saved);
           if (parsed.homeworkList && parsed.homeworkList.length) {
-            // 確保儲存的資料中第一項仍然是聯絡簿
             let list = parsed.homeworkList;
             if (!list.some(h => h.title === '聯絡簿')) {
               list.unshift({ id: 'hw_contact_book', title: '聯絡簿', isFixed: true });
@@ -1092,8 +1085,8 @@ createApp({
 
     onMounted(() => {
       loadFromStorage();
-      // 網頁載入時自動在背景檢查 Padlet 最新聯絡簿
-      fetchPadletHomework(false);
+      // 網頁載入時自動從同源 homework.json 檢查雲端最新同步
+      fetchHomeworkJson(false);
     });
 
     return {
@@ -1103,8 +1096,10 @@ createApp({
       soundEnabled,
       showAbsentModal,
       showManageHomeworkModal,
+      showSyncOptionsModal,
       showSyncConfirmModal,
       newHwTitle,
+      pasteContent,
       absentStudents,
       homeworkList,
       activeHwId,
@@ -1127,7 +1122,8 @@ createApp({
       markAllMissing,
       addHomework,
       removeHomework,
-      fetchPadletHomework,
+      fetchHomeworkJson,
+      parsePastedText,
       applyDetectedHomework,
       copyLineReport,
       playClickSound,
