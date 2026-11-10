@@ -3,13 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>羚藝汽泡水 作業佈告欄 - 607 班級作業清點系統</title>
+  <title>羚藝汽泡水 作業佈告欄 - 607 班級作業清點系統 (雲端同步版)</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Vue 3 -->
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <!-- Canvas Confetti -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Firebase Compat 10.x SDK (即時跨電腦同步核心) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
   <script>
     tailwind.config = {
       theme: {
@@ -113,13 +117,14 @@
               </span>
             </h1>
             
-            <!-- Padlet 同步狀態徽章 -->
-            <span v-if="syncStatus === 'syncing'" class="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium flex items-center gap-1.5 animate-pulse">
-              <span class="w-2 h-2 rounded-full bg-amber-400"></span> 讀取中...
-            </span>
-            <span v-else class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium flex items-center gap-1.5 cursor-pointer hover:bg-emerald-500/30" @click="showSyncOptionsModal = true" :title="'點擊查看同步資訊。最新貼文：' + padletLatestDate">
-              <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Padlet ({{ padletLatestDate }})
-            </span>
+            <!-- 跨電腦雲端同步狀態指示燈 (重要升級功能) -->
+            <button @click="showCloudSyncModal = true"
+                    :class="isCloudSyncActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'"
+                    class="text-xs px-2.5 py-0.5 rounded-full border font-bold flex items-center gap-1.5 transition cursor-pointer"
+                    :title="isCloudSyncActive ? '雲端即時同步已連線：多台電腦點選即時同步！' : '目前為本機單機模式：點此開啟多台電腦即時同步！'">
+              <span class="w-2 h-2 rounded-full" :class="isCloudSyncActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
+              <span>{{ isCloudSyncActive ? '☁️ 雲端即時連線中' : '☁️ 設定多電腦同步' }}</span>
+            </button>
           </div>
 
           <div class="text-xs text-slate-400 font-medium flex items-center gap-2 mt-0.5">
@@ -338,6 +343,7 @@
             </div>
             <p class="text-sm text-slate-300 mt-1.5">
               👉 <span class="text-amber-300 font-bold">操作方式：</span>預設為已交（綠燈）。請點擊「<strong class="text-rose-400 underline decoration-2">未繳交</strong>」同學座號（變紅燈 ❌）。若之後補交，再點一次變回綠燈。
+              <span v-if="isCloudSyncActive" class="text-emerald-300 font-bold ml-1">（點選後所有電腦與手機即時同步 ✨）</span>
             </p>
           </div>
 
@@ -405,7 +411,8 @@
               </div>
             </div>
             <div class="text-xs text-slate-400">
-              💾 即時自動儲存於瀏覽器 LocalStorage
+              <span v-if="isCloudSyncActive" class="text-emerald-400 font-bold">☁️ 雲端即時同步已啟動</span>
+              <span v-else>💾 本地自動儲存於瀏覽器</span>
             </div>
           </div>
         </div>
@@ -784,7 +791,77 @@
     </div>
   </div>
 
-  <!-- ================= 彈出視窗 4: 偵測到新作業確認對話框 ================= -->
+
+  <!-- ================= 彈出視窗 4: ☁️ 多台電腦即時同步設定 (Firebase Realtime Sync) ================= -->
+  <div v-if="showCloudSyncModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          <span>☁️ 多台電腦即時同步設定</span>
+        </h3>
+        <button @click="showCloudSyncModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <!-- 目前同步狀態卡片 -->
+      <div :class="isCloudSyncActive ? 'bg-emerald-950/40 border-emerald-500/40' : 'bg-slate-900/80 border-slate-700'"
+           class="p-4 rounded-2xl border flex items-center justify-between">
+        <div>
+          <div class="font-bold text-sm text-white flex items-center gap-2">
+            <span>連線狀態：</span>
+            <span v-if="isCloudSyncActive" class="text-emerald-400 font-black flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              雲端即時連線中 (多裝置毫秒同步)
+            </span>
+            <span v-else class="text-amber-400 font-black">
+              尚未連線 (目前為本地單機儲存)
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">
+            連線後，講台電腦組長點選未交，您在個人電腦或手機上將「即時同步顯示」。
+          </p>
+        </div>
+        <button v-if="isCloudSyncActive" @click="disconnectFirebase"
+                class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 border border-slate-700 transition">
+          中斷連線
+        </button>
+      </div>
+
+      <!-- Firebase 設定貼上區 -->
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-bold text-slate-300">
+            請貼上 Firebase 設定 JSON（或直接貼入 apiKey 等欄位）：
+          </label>
+          <a href="https://console.firebase.google.com/" target="_blank" class="text-xs text-indigo-400 hover:underline">
+            前往 Firebase 主控台 ↗
+          </a>
+        </div>
+        
+        <textarea v-model="firebaseConfigInput" rows="6"
+                  placeholder='{&#10;  "apiKey": "AIzaSy...",&#10;  "authDomain": "...",&#10;  "databaseURL": "https://...firebaseio.com",&#10;  "projectId": "...",&#10;  "storageBucket": "..."&#10;}'
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-emerald-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"></textarea>
+      </div>
+
+      <!-- 操作按鈕 -->
+      <div class="flex gap-2">
+        <button @click="saveAndConnectFirebase"
+                class="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-1.5">
+          <span>⚡ 儲存並啟用雲端同步</span>
+        </button>
+      </div>
+
+      <div class="text-[11px] text-slate-400 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+        💡 <strong>小提示：</strong>只要在任何一台電腦設定一次，您也可以直接把設定存在倉庫的 <code class="text-indigo-300">firebase-config.json</code> 中，這樣任何電腦打開網址都不需要再手動設定，自動完成雲端連線！
+      </div>
+
+      <button @click="showCloudSyncModal = false"
+              class="w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition">
+        關閉視窗
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= 彈出視窗 5: 偵測到新作業確認對話框 ================= -->
   <div v-if="showSyncConfirmModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-5">
       <div class="flex items-center justify-between">
@@ -837,7 +914,7 @@
 </div>
 
 <script>
-const { createApp, ref, computed, onMounted, watch } = Vue;
+const { createApp, ref, computed, onMounted } = Vue;
 
 createApp({
   setup() {
@@ -860,7 +937,7 @@ createApp({
       const targetDate = new Date(now);
       targetDate.setDate(targetDate.getDate() + (weekOffset.value * 7));
       
-      const dayOfWeek = targetDate.getDay(); // 0 是週日, 1 是週一...
+      const dayOfWeek = targetDate.getDay();
       const monday = new Date(targetDate);
       monday.setDate(targetDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
 
@@ -888,10 +965,9 @@ createApp({
       return `${first.shortDate} ~ ${last.shortDate}`;
     });
 
-    // 當前選取的分頁標籤：可能是某天的 iso 字串（如 '2026-11-10'），或 'summary'（本週彙整總表）
+    // 當前選取分頁
     const activeTab = ref(todayIso);
 
-    // 檢查 activeTab 是否在當前週內，若不在且不是 summary，預設選中當前週的第一天
     const currentDayObject = computed(() => {
       return weekDays.value.find(d => d.iso === activeTab.value) || null;
     });
@@ -912,7 +988,7 @@ createApp({
       activeTab.value = iso;
     };
 
-    // 視圖狀態：'check'（組長點選）或 'board'（黑板大看板）
+    // 視圖狀態
     const currentView = ref('check');
     const toastMsg = ref('');
     const soundEnabled = ref(true);
@@ -922,28 +998,98 @@ createApp({
     const showManageHomeworkModal = ref(false);
     const showSyncOptionsModal = ref(false);
     const showSyncConfirmModal = ref(false);
+    const showCloudSyncModal = ref(false);
     const newHwTitle = ref('');
     const pasteContent = ref('');
 
-    // Padlet 同步相關狀態
+    // Padlet 同步狀態
     const syncStatus = ref('idle');
     const padletLatestDate = ref('1111');
     const detectedPadletPost = ref({ title: '', date: '' });
     const detectedTasks = ref([]);
 
     // 🌟 全系統每日數據存儲中心 (Key: isoDate)
-    // 每個元素包含 { homeworkList, records, absentStudents, activeHwId }
     const allDaysData = ref({});
+
+    // 🌟 Firebase Realtime Database 跨裝置即時同步引擎
+    let rtdb = null;
+    const isCloudSyncActive = ref(false);
+    const firebaseConfigInput = ref('');
+    let isRemoteUpdating = false; // 避免自己更新自己循環觸發
+
+    const initFirebase = (config) => {
+      try {
+        if (!config || !config.apiKey) return;
+        if (!firebase.apps.length) {
+          firebase.initializeApp(config);
+        }
+        rtdb = firebase.database();
+        isCloudSyncActive.value = true;
+
+        // 監聽雲端即時更新 (任何電腦點選，全網即時更新)
+        const cloudRef = rtdb.ref('lingyi_607/weekly_data');
+        cloudRef.on('value', (snapshot) => {
+          const val = snapshot.val();
+          if (val && val.allDaysData) {
+            isRemoteUpdating = true;
+            allDaysData.value = val.allDaysData;
+            localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
+              allDaysData: val.allDaysData,
+              soundEnabled: soundEnabled.value
+            }));
+            setTimeout(() => { isRemoteUpdating = false; }, 100);
+          }
+        });
+        showToast('☁️ 雲端即時同步已連線！多台電腦可即時查看');
+      } catch (err) {
+        console.error('Firebase 連線失敗', err);
+        isCloudSyncActive.value = false;
+      }
+    };
+
+    const disconnectFirebase = () => {
+      if (rtdb) {
+        rtdb.ref('lingyi_607/weekly_data').off();
+      }
+      rtdb = null;
+      isCloudSyncActive.value = false;
+      localStorage.removeItem('607_firebase_config');
+      showToast('已切換回本地單機模式');
+    };
+
+    const saveAndConnectFirebase = () => {
+      const text = firebaseConfigInput.value.trim();
+      if (!text) {
+        alert('請先貼上 Firebase 設定 JSON');
+        return;
+      }
+      try {
+        let configObj = null;
+        if (text.startsWith('{')) {
+          configObj = JSON.parse(text);
+        } else {
+          // 容許直接貼上 const firebaseConfig = { ... }
+          const match = text.match(/\{[\s\S]*\}/);
+          if (match) configObj = JSON.parse(match[0]);
+        }
+        if (!configObj || !configObj.apiKey) {
+          throw new Error('缺少 apiKey');
+        }
+        localStorage.setItem('607_firebase_config', JSON.stringify(configObj));
+        initFirebase(configObj);
+        showCloudSyncModal.value = false;
+      } catch (e) {
+        alert('Firebase 設定格式不正確，請確認包含完整的 apiKey、projectId 等欄位');
+      }
+    };
 
     // 輔助函式：確保某天的數據結構存在
     const ensureDayData = (iso) => {
       if (!allDaysData.value[iso]) {
-        // 預設第一項固定為聯絡簿
         let defaultList = [
           { id: 'hw_contact_book', title: '聯絡簿', isFixed: true }
         ];
 
-        // 若為今日 11/10，加入預設範例
         if (iso === '2026-11-10') {
           defaultList.push(
             { id: 'hw_1', title: '數習 64、66', isFixed: false },
@@ -966,7 +1112,6 @@ createApp({
       return allDaysData.value[iso];
     };
 
-    // 取得當前選定天的資料
     const currentActiveDayData = computed(() => {
       if (!currentDayObject.value) return null;
       return ensureDayData(currentDayObject.value.iso);
@@ -997,10 +1142,7 @@ createApp({
       return currentHomeworkList.value.find(h => h.id === activeHwId.value) || currentHomeworkList.value[0];
     });
 
-    // 狀態存取
-    const isAbsent = (seat) => {
-      return currentAbsentList.value.includes(seat);
-    };
+    const isAbsent = (seat) => currentAbsentList.value.includes(seat);
 
     const isStudentAbsentOnDay = (iso, seat) => {
       const day = allDaysData.value[iso];
@@ -1034,7 +1176,7 @@ createApp({
       return currentActiveDayData.value.records[key] === 'missing' ? 'missing' : 'submitted';
     };
 
-    // 切換座號已交 / 缺交
+    // 切換座號已交 / 缺交 (觸發雲端即時同步)
     const toggleStudentStatus = (hwId, seat) => {
       if (isAbsent(seat) || !currentActiveDayData.value) return;
       const key = `${hwId}_${seat}`;
@@ -1055,7 +1197,6 @@ createApp({
       saveAllToStorage();
     };
 
-    // 座號按鈕樣式
     const getSeatButtonClass = (hwId, seat) => {
       if (isAbsent(seat)) {
         return 'bg-slate-850 border-slate-700/60 text-slate-500 cursor-not-allowed opacity-50';
@@ -1067,7 +1208,6 @@ createApp({
       return 'bg-emerald-700/80 hover:bg-emerald-600/90 border-emerald-500/60 text-white font-bold hover:shadow-lg hover:shadow-emerald-950';
     };
 
-    // 缺交統計
     const getMissingList = (hwId) => {
       if (!currentActiveDayData.value) return [];
       const list = [];
@@ -1098,7 +1238,6 @@ createApp({
       return Math.round((getSubmittedCount(hwId) / total) * 100);
     };
 
-    // 批次操作
     const markAllSubmitted = (hwId) => {
       if (!currentActiveDayData.value) return;
       for (let seat = 1; seat <= 26; seat++) {
@@ -1120,7 +1259,6 @@ createApp({
       showToast('已將本科重設');
     };
 
-    // 管理作業
     const addHomework = () => {
       const title = newHwTitle.value.trim();
       if (!title || !currentActiveDayData.value) return;
@@ -1157,7 +1295,6 @@ createApp({
       return day ? day.homeworkList.length : 0;
     };
 
-    // 取得某天某座號未繳交的作業項目
     const getStudentMissingTasksOnDay = (iso, seat) => {
       const day = allDaysData.value[iso];
       if (!day) return [];
@@ -1165,7 +1302,6 @@ createApp({
       return day.homeworkList.filter(hw => day.records[`${hw.id}_${seat}`] === 'missing');
     };
 
-    // 取得某天未繳交人數 (至少有一項未交的人數)
     const getDayMissingCount = (iso) => {
       const day = allDaysData.value[iso];
       if (!day || day.homeworkList.length === 0) return 0;
@@ -1179,7 +1315,6 @@ createApp({
       return count;
     };
 
-    // 取得某學生本週所有未交項目清單
     const getStudentTotalDebt = (seat) => {
       const list = [];
       weekDays.value.forEach(day => {
@@ -1197,7 +1332,6 @@ createApp({
       return list;
     };
 
-    // 本週有欠繳作業的學生列表
     const studentsWithDebt = computed(() => {
       const list = [];
       for (let seat = 1; seat <= 26; seat++) {
@@ -1223,7 +1357,6 @@ createApp({
       return weekDays.value.some(day => getDayTaskCount(day.iso) > 0);
     });
 
-    // 快捷銷帳：在總表中直接清除特定作業欠繳
     const clearSpecificDebt = (dayIso, hwId, seat) => {
       const day = allDaysData.value[dayIso];
       if (day) {
@@ -1353,10 +1486,8 @@ createApp({
       playClickSound('complete');
     };
 
-    // 一鍵複製通報名單 (單日 vs 本週總表)
     const copyReport = () => {
       if (activeTab.value === 'summary') {
-        // 複製本週未交總清單
         let text = `📢【607 本週作業未繳清算提醒】(${weekLabel.value})\n`;
         text += `------------------------------------------\n`;
         if (studentsWithDebt.value.length === 0) {
@@ -1377,7 +1508,6 @@ createApp({
         return;
       }
 
-      // 複製單日清單
       const day = currentDayObject.value;
       let text = `📢【607 今日作業缺交提醒】${day ? day.name + ' (' + day.shortDate + ')' : ''}\n`;
       text += `------------------------------------\n`;
@@ -1408,7 +1538,6 @@ createApp({
       }).catch(() => alert(text));
     };
 
-    // 音效合成播放
     const playClickSound = (type = 'click') => {
       if (!soundEnabled.value) return;
       try {
@@ -1454,14 +1583,23 @@ createApp({
       setTimeout(() => { toastMsg.value = ''; }, 3000);
     };
 
-    // 本地持久化存儲 (整合週次系統)
+    // 本地 + 雲端 雙軌儲存引擎
     const storageKey = '607_weekly_hw_data_v2';
     const saveAllToStorage = () => {
       const payload = {
         allDaysData: allDaysData.value,
         soundEnabled: soundEnabled.value
       };
+      // 1. 儲存至本機
       localStorage.setItem(storageKey, JSON.stringify(payload));
+
+      // 2. 若雲端已連線且非來自遠端廣播，立即同步至 Firebase 雲端資料庫
+      if (rtdb && isCloudSyncActive.value && !isRemoteUpdating) {
+        rtdb.ref('lingyi_607/weekly_data').set({
+          allDaysData: allDaysData.value,
+          updatedAt: Date.now()
+        }).catch(e => console.warn('雲端同步更新失敗', e));
+      }
     };
 
     const loadAllFromStorage = () => {
@@ -1475,8 +1613,27 @@ createApp({
           console.error('Failed to parse storage', e);
         }
       }
-      // 確保本週每天資料皆已初始化
       weekDays.value.forEach(d => ensureDayData(d.iso));
+
+      // 檢查是否有儲存的 Firebase 設定或同源設定檔
+      const savedConfig = localStorage.getItem('607_firebase_config');
+      if (savedConfig) {
+        try {
+          const config = JSON.parse(savedConfig);
+          firebaseConfigInput.value = JSON.stringify(config, null, 2);
+          initFirebase(config);
+        } catch (e) {}
+      } else {
+        // 嘗試自動讀取倉庫中的 firebase-config.json
+        fetch('firebase-config.json?t=' + Date.now())
+          .then(res => res.ok ? res.json() : null)
+          .then(config => {
+            if (config && config.apiKey) {
+              firebaseConfigInput.value = JSON.stringify(config, null, 2);
+              initFirebase(config);
+            }
+          }).catch(() => {});
+      }
     };
 
     onMounted(() => {
@@ -1503,8 +1660,13 @@ createApp({
       showManageHomeworkModal,
       showSyncOptionsModal,
       showSyncConfirmModal,
+      showCloudSyncModal,
       newHwTitle,
       pasteContent,
+      isCloudSyncActive,
+      firebaseConfigInput,
+      saveAndConnectFirebase,
+      disconnectFirebase,
       currentHomeworkList,
       currentAbsentList,
       activeHwId,
