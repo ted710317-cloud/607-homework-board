@@ -1044,9 +1044,21 @@ createApp({
           const val = snapshot.val();
           if (val && val.allDaysData && Object.keys(val.allDaysData).length > 0) {
             isRemoteUpdating = true;
-            allDaysData.value = val.allDaysData;
+            // 防禦性標準化（防止 Firebase 剝除空陣列 absentStudents: [] 或空物件 records: {}）
+            const normalized = {};
+            for (const [iso, day] of Object.entries(val.allDaysData)) {
+              if (day) {
+                normalized[iso] = {
+                  homeworkList: Array.isArray(day.homeworkList) ? day.homeworkList : [{ id: 'hw_contact_book', title: '聯絡簿', isFixed: true }],
+                  records: (day.records && typeof day.records === 'object') ? day.records : {},
+                  absentStudents: Array.isArray(day.absentStudents) ? day.absentStudents : [],
+                  activeHwId: day.activeHwId || 'hw_contact_book'
+                };
+              }
+            }
+            allDaysData.value = normalized;
             localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
-              allDaysData: val.allDaysData,
+              allDaysData: normalized,
               soundEnabled: soundEnabled.value
             }));
             setTimeout(() => { isRemoteUpdating = false; }, 100);
@@ -1104,7 +1116,7 @@ createApp({
       }
     };
 
-    // 輔助函式：確保某天的數據結構存在
+    // 輔助函式：確保某天的數據結構存在（防禦性補齊，保證陣列與物件完整無虞）
     const ensureDayData = (iso) => {
       if (!allDaysData.value[iso]) {
         let defaultList = [
@@ -1130,7 +1142,20 @@ createApp({
           activeHwId: 'hw_contact_book'
         };
       }
-      return allDaysData.value[iso];
+      const day = allDaysData.value[iso];
+      if (!day.homeworkList || !Array.isArray(day.homeworkList) || day.homeworkList.length === 0) {
+        day.homeworkList = [{ id: 'hw_contact_book', title: '聯絡簿', isFixed: true }];
+      }
+      if (!day.records || typeof day.records !== 'object') {
+        day.records = {};
+      }
+      if (!day.absentStudents || !Array.isArray(day.absentStudents)) {
+        day.absentStudents = [];
+      }
+      if (!day.activeHwId) {
+        day.activeHwId = day.homeworkList[0]?.id || 'hw_contact_book';
+      }
+      return day;
     };
 
     const currentActiveDayData = computed(() => {
@@ -1139,11 +1164,15 @@ createApp({
     });
 
     const currentHomeworkList = computed(() => {
-      return currentActiveDayData.value ? currentActiveDayData.value.homeworkList : [];
+      return (currentActiveDayData.value && Array.isArray(currentActiveDayData.value.homeworkList))
+        ? currentActiveDayData.value.homeworkList
+        : [];
     });
 
     const currentAbsentList = computed(() => {
-      return currentActiveDayData.value ? currentActiveDayData.value.absentStudents : [];
+      return (currentActiveDayData.value && Array.isArray(currentActiveDayData.value.absentStudents))
+        ? currentActiveDayData.value.absentStudents
+        : [];
     });
 
     const activeHwId = computed({
@@ -1312,24 +1341,27 @@ createApp({
 
     // ================= 📊 每週統計核心演算法 =================
     const getDayTaskCount = (iso) => {
-      const day = allDaysData.value[iso];
-      return day ? day.homeworkList.length : 0;
+      const day = ensureDayData(iso);
+      return (day && Array.isArray(day.homeworkList)) ? day.homeworkList.length : 0;
     };
 
     const getStudentMissingTasksOnDay = (iso, seat) => {
-      const day = allDaysData.value[iso];
+      const day = ensureDayData(iso);
       if (!day) return [];
-      if (day.absentStudents.includes(seat)) return [];
-      return day.homeworkList.filter(hw => day.records[`${hw.id}_${seat}`] === 'missing');
+      if (day.absentStudents && day.absentStudents.includes(seat)) return [];
+      const records = day.records || {};
+      return (day.homeworkList || []).filter(hw => records[`${hw.id}_${seat}`] === 'missing');
     };
 
     const getDayMissingCount = (iso) => {
-      const day = allDaysData.value[iso];
-      if (!day || day.homeworkList.length === 0) return 0;
+      const day = ensureDayData(iso);
+      if (!day || !day.homeworkList || day.homeworkList.length === 0) return 0;
       let count = 0;
+      const absent = day.absentStudents || [];
+      const records = day.records || {};
       for (let seat = 1; seat <= 26; seat++) {
-        if (!day.absentStudents.includes(seat)) {
-          const hasMissing = day.homeworkList.some(hw => day.records[`${hw.id}_${seat}`] === 'missing');
+        if (!absent.includes(seat)) {
+          const hasMissing = day.homeworkList.some(hw => records[`${hw.id}_${seat}`] === 'missing');
           if (hasMissing) count++;
         }
       }
@@ -1379,12 +1411,13 @@ createApp({
     });
 
     const clearSpecificDebt = (dayIso, hwId, seat) => {
-      const day = allDaysData.value[dayIso];
+      const day = ensureDayData(dayIso);
       if (day) {
+        day.records = day.records || {};
         day.records[`${hwId}_${seat}`] = 'submitted';
         saveAllToStorage();
         playClickSound('click');
-        showToast(`已為 ${seat} 號補交 ${day.name} 作業！`);
+        showToast(`已為 ${seat} 號補交作業！`);
       }
     };
 
