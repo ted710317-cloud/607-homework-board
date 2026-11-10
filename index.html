@@ -215,7 +215,8 @@
         <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center justify-between">
           <span class="flex items-center gap-1.5">
             <span>👇</span>
-            <strong class="text-indigo-300">第一步：請各科組長點選你負責收的作業</strong>
+            <strong class="text-indigo-300">第一步：請組長點選你負責收的作業</strong>
+            <span class="text-amber-400 font-bold ml-1">（第 1 項固定為「聯絡簿」）</span>
           </span>
           <span class="text-slate-400 font-medium">今日共 {{ homeworkList.length }} 項作業</span>
         </div>
@@ -223,11 +224,14 @@
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           <button v-for="(hw, idx) in homeworkList" :key="hw.id"
                   @click="activeHwId = hw.id; playClickSound()"
-                  :class="activeHwId === hw.id ? 'ring-2 ring-cyan-400 bg-indigo-950/80 border-cyan-400 text-white shadow-xl shadow-cyan-950/40' : 'bg-slate-800/80 border-slate-700/80 text-slate-300 hover:bg-slate-750'"
+                  :class="activeHwId === hw.id ? 'ring-2 ring-cyan-400 bg-indigo-950/80 border-cyan-400 text-white shadow-xl shadow-cyan-950/40' : (hw.isFixed ? 'bg-amber-950/30 border-amber-600/40 text-amber-200 hover:bg-amber-950/50' : 'bg-slate-800/80 border-slate-700/80 text-slate-300 hover:bg-slate-750')"
                   class="p-3.5 rounded-2xl border text-left flex flex-col justify-between transition-all relative overflow-hidden group">
             
             <div class="flex items-start justify-between gap-1 mb-2">
-              <span class="font-black text-base sm:text-lg truncate" :title="hw.title">{{ hw.title }}</span>
+              <div class="flex items-center gap-1.5 truncate">
+                <span v-if="hw.isFixed" class="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black">第1項</span>
+                <span class="font-black text-base sm:text-lg truncate" :title="hw.title">{{ hw.title }}</span>
+              </div>
               <span v-if="getMissingCount(hw.id) === 0" class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30 whitespace-nowrap">
                 全齊 🎉
               </span>
@@ -255,7 +259,12 @@
         <div>
           <div class="flex items-center gap-3">
             <h2 class="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
-              📖 {{ currentHw.title }}
+              <span v-if="currentHw.isFixed">📕</span>
+              <span v-else>📖</span>
+              <span>{{ currentHw.title }}</span>
+              <span v-if="currentHw.isFixed" class="text-xs px-2.5 py-1 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
+                每日第一項固定清點
+              </span>
             </h2>
             <span v-if="getMissingCount(currentHw.id) === 0" class="px-3.5 py-1 rounded-xl bg-emerald-500 text-slate-950 font-black text-sm shadow-md">
               全班已交齊！
@@ -359,10 +368,14 @@
       <!-- 全科目卡片並列展示 (大字體投影版) -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div v-for="hw in homeworkList" :key="hw.id"
-             class="bg-slate-800/90 rounded-3xl p-6 border border-slate-700 shadow-xl flex flex-col justify-between">
+             :class="hw.isFixed ? 'border-amber-500/40 bg-slate-850' : 'border-slate-700 bg-slate-800/90'"
+             class="rounded-3xl p-6 border shadow-xl flex flex-col justify-between">
           <div>
             <div class="flex items-center justify-between gap-2 pb-4 border-b border-slate-700/80 mb-4">
-              <h3 class="text-2xl font-black text-white truncate" :title="hw.title">{{ hw.title }}</h3>
+              <div class="flex items-center gap-2 truncate">
+                <span v-if="hw.isFixed" class="text-xs px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black">第1項</span>
+                <h3 class="text-2xl font-black text-white truncate" :title="hw.title">{{ hw.title }}</h3>
+              </div>
               <span v-if="getMissingCount(hw.id) === 0" class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black">
                 100% 全交
               </span>
@@ -509,16 +522,21 @@
       <!-- 目前作業列表清單 -->
       <div class="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
         <div v-for="(hw, idx) in homeworkList" :key="hw.id"
-             class="flex items-center justify-between bg-slate-900/40 p-3 rounded-xl border border-slate-700/60">
+             :class="hw.isFixed ? 'border-amber-600/40 bg-amber-950/20' : 'border-slate-700/60 bg-slate-900/40'"
+             class="flex items-center justify-between p-3 rounded-xl border">
           <div class="flex items-center gap-2">
             <span class="w-6 h-6 rounded-lg bg-slate-800 text-slate-400 text-xs flex items-center justify-center font-bold">
               {{ idx + 1 }}
             </span>
+            <span v-if="hw.isFixed" class="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+              固定第1項
+            </span>
             <span class="font-bold text-slate-200 text-sm">{{ hw.title }}</span>
           </div>
-          <button @click="removeHomework(hw.id)" class="text-slate-500 hover:text-rose-400 text-xs font-bold px-2 py-1">
+          <button v-if="!hw.isFixed" @click="removeHomework(hw.id)" class="text-slate-500 hover:text-rose-400 text-xs font-bold px-2 py-1">
             刪除
           </button>
+          <span v-else class="text-xs text-amber-400/80 px-2 font-medium">每日必收</span>
         </div>
       </div>
 
@@ -546,18 +564,22 @@
       </div>
 
       <p class="text-xs text-slate-300">
-        已自動為您解析出下列作業項目，請勾選要納入今日清點的項目：
+        已自動為您排定今日清點項目（第一項固定為「聯絡簿」）：
       </p>
 
       <!-- 解析出的作業清單勾選 -->
       <div class="flex flex-col gap-2 max-h-60 overflow-y-auto">
         <label v-for="(item, idx) in detectedTasks" :key="idx"
-               class="flex items-center gap-3 p-3 rounded-xl bg-slate-900/60 border border-slate-700/80 cursor-pointer hover:bg-slate-900 transition">
-          <input type="checkbox" v-model="item.selected" class="w-5 h-5 rounded accent-indigo-500 cursor-pointer" />
+               :class="item.isFixed ? 'border-amber-500/40 bg-amber-950/20' : 'border-slate-700/80 bg-slate-900/60'"
+               class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer hover:bg-slate-900 transition">
+          <input type="checkbox" v-model="item.selected" :disabled="item.isFixed" class="w-5 h-5 rounded accent-indigo-500 cursor-pointer" />
+          <span v-if="item.isFixed" class="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+            第1項固定
+          </span>
           <span class="text-sm font-bold" :class="item.selected ? 'text-white' : 'text-slate-500 line-through'">
             {{ item.title }}
           </span>
-          <span v-if="!item.isHomework" class="ml-auto text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+          <span v-if="!item.isHomework && !item.isFixed" class="ml-auto text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">
             非作業提醒
           </span>
         </label>
@@ -604,15 +626,16 @@ createApp({
     // 請假學生名單（座號陣列）
     const absentStudents = ref([]);
 
-    // 作業項目預設（直接帶入 11/10 Padlet 聯絡簿內容）
+    // 作業項目預設（第一項固定為「聯絡簿」，接著為今日 Padlet 作業）
     const homeworkList = ref([
+      { id: 'hw_contact_book', title: '聯絡簿', isFixed: true },
       { id: 'hw_1', title: '數習 64、66' },
       { id: 'hw_2', title: '國L7字形七字詩 1-3' },
       { id: 'hw_3', title: '數重 40' }
     ]);
 
-    // 當前選取的作業 ID
-    const activeHwId = ref('hw_1');
+    // 當前選取的作業 ID (預設先選第一項：聯絡簿)
+    const activeHwId = ref('hw_contact_book');
     const currentHw = computed(() => homeworkList.value.find(h => h.id === activeHwId.value) || homeworkList.value[0]);
 
     // 繳交狀態記錄表：key 是 `${hwId}_${seat}`，值為 'submitted' | 'missing'
@@ -641,7 +664,7 @@ createApp({
 
     const isLikelyHomework = (text) => {
       const notHwKeywords = ['穿班服', '考直笛', '明天考', '下週考', '期中考', '放假', '通知單', '帶作業'];
-      const hwKeywords = ['習', '本', '卷', '重', '課', '作', '練', '詩', '背', '讀', '訂正', '心智圖', '交'];
+      const hwKeywords = ['習', '本', '卷', '重', '課', '作', '練', '詩', '背', '讀', '訂正', '心智圖', '交', '聯絡簿'];
       
       if (notHwKeywords.some(k => text.includes(k))) return false;
       if (hwKeywords.some(k => text.includes(k))) return true;
@@ -733,11 +756,23 @@ createApp({
             return {
               title: t,
               isHomework: isHw,
-              selected: isHw // 預設只勾選判定為實體作業的項目
+              selected: isHw,
+              isFixed: false
             };
           });
 
-        detectedTasks.value = parsedTasks;
+        // 🌟 確保第一項永遠是「聯絡簿」
+        const taskListWithContact = [
+          {
+            title: '聯絡簿',
+            isHomework: true,
+            selected: true,
+            isFixed: true
+          },
+          ...parsedTasks.filter(t => t.title !== '聯絡簿')
+        ];
+
+        detectedTasks.value = taskListWithContact;
         syncStatus.value = 'success';
 
         // 判斷是否需要提示使用者確認套用
@@ -762,17 +797,32 @@ createApp({
         return;
       }
 
-      homeworkList.value = selected.map((t, idx) => ({
-        id: 'hw_padlet_' + idx + '_' + Date.now(),
-        title: t.title
-      }));
-      activeHwId.value = homeworkList.value[0].id;
+      // 確保「聯絡簿」永遠是第一項
+      let finalItems = [];
+      finalItems.push({
+        id: 'hw_contact_book',
+        title: '聯絡簿',
+        isFixed: true
+      });
+
+      selected.forEach((t, idx) => {
+        if (t.title !== '聯絡簿') {
+          finalItems.push({
+            id: 'hw_padlet_' + idx + '_' + Date.now(),
+            title: t.title,
+            isFixed: false
+          });
+        }
+      });
+
+      homeworkList.value = finalItems;
+      activeHwId.value = 'hw_contact_book';
       
       // 記錄這次套用的 Padlet 貼文標題
       localStorage.setItem('607_last_padlet_title', detectedPadletPost.value.title);
       saveToStorage();
       showSyncConfirmModal.value = false;
-      showToast(`已成功同步 Padlet「${detectedPadletPost.value.title}」聯絡簿！`);
+      showToast(`已成功同步 Padlet「${detectedPadletPost.value.title}」作業（含第一項聯絡簿）！`);
       triggerConfetti();
       playClickSound('complete');
     };
@@ -929,7 +979,7 @@ createApp({
       const title = newHwTitle.value.trim();
       if (!title) return;
       const id = 'hw_' + Date.now();
-      homeworkList.value.push({ id, title });
+      homeworkList.value.push({ id, title, isFixed: false });
       newHwTitle.value = '';
       activeHwId.value = id;
       saveToStorage();
@@ -937,6 +987,11 @@ createApp({
     };
 
     const removeHomework = (id) => {
+      const target = homeworkList.value.find(h => h.id === id);
+      if (target && target.isFixed) {
+        alert('「聯絡簿」為每日固定第一項作業，無法刪除');
+        return;
+      }
       if (homeworkList.value.length <= 1) {
         alert('請至少保留一項作業');
         return;
@@ -960,11 +1015,12 @@ createApp({
       let allClean = true;
       homeworkList.value.forEach(hw => {
         const missing = getMissingList(hw.id);
+        const icon = hw.isFixed ? '📕' : '📘';
         if (missing.length === 0) {
-          text += `✅ ${hw.title}：全班到齊 🎉\n`;
+          text += `✅ ${icon} ${hw.title}：全班到齊 🎉\n`;
         } else {
           allClean = false;
-          text += `❌ ${hw.title}：缺 ${missing.join(', ')} 號\n`;
+          text += `❌ ${icon} ${hw.title}：缺 ${missing.join(', ')} 號\n`;
         }
       });
       text += `------------------------------------\n`;
@@ -1017,7 +1073,14 @@ createApp({
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (parsed.homeworkList && parsed.homeworkList.length) homeworkList.value = parsed.homeworkList;
+          if (parsed.homeworkList && parsed.homeworkList.length) {
+            // 確保儲存的資料中第一項仍然是聯絡簿
+            let list = parsed.homeworkList;
+            if (!list.some(h => h.title === '聯絡簿')) {
+              list.unshift({ id: 'hw_contact_book', title: '聯絡簿', isFixed: true });
+            }
+            homeworkList.value = list;
+          }
           if (parsed.records) records.value = parsed.records;
           if (parsed.absentStudents) absentStudents.value = parsed.absentStudents;
           if (parsed.soundEnabled !== undefined) soundEnabled.value = parsed.soundEnabled;
