@@ -851,7 +851,7 @@
       </div>
 
       <div class="text-[11px] text-slate-400 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
-        💡 <strong>小提示：</strong>只要在任何一台電腦設定一次，您也可以直接把設定存在倉庫的 <code class="text-indigo-300">firebase-config.json</code> 中，這樣任何電腦打開網址都不需要再手動設定，自動完成雲端連線！
+        💡 <strong>小提示：</strong>本系統已內建「羚藝汽泡水」專屬 Firebase 即時資料庫，任何電腦、筆電或手機直接開啟網頁，皆會自動連線即時同步，完全免手動設定！
       </div>
 
       <button @click="showCloudSyncModal = false"
@@ -1011,10 +1011,22 @@ createApp({
     // 🌟 全系統每日數據存儲中心 (Key: isoDate)
     const allDaysData = ref({});
 
+    // 🌟 羚藝汽泡水 607 班級專屬預設 Firebase 即時同步配置
+    const DEFAULT_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyA-5cxuRMNKRftvKcJ7MB2EpQa2A6K0NxU",
+      authDomain: "lingyi-607.firebaseapp.com",
+      databaseURL: "https://lingyi-607-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "lingyi-607",
+      storageBucket: "lingyi-607.firebasestorage.app",
+      messagingSenderId: "834382942899",
+      appId: "1:834382942899:web:5b4b2192c1875ee995d6c6",
+      measurementId: "G-00K9V4RPP0"
+    };
+
     // 🌟 Firebase Realtime Database 跨裝置即時同步引擎
     let rtdb = null;
     const isCloudSyncActive = ref(false);
-    const firebaseConfigInput = ref('');
+    const firebaseConfigInput = ref(JSON.stringify(DEFAULT_FIREBASE_CONFIG, null, 2));
     let isRemoteUpdating = false; // 避免自己更新自己循環觸發
 
     const initFirebase = (config) => {
@@ -1030,7 +1042,7 @@ createApp({
         const cloudRef = rtdb.ref('lingyi_607/weekly_data');
         cloudRef.on('value', (snapshot) => {
           const val = snapshot.val();
-          if (val && val.allDaysData) {
+          if (val && val.allDaysData && Object.keys(val.allDaysData).length > 0) {
             isRemoteUpdating = true;
             allDaysData.value = val.allDaysData;
             localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
@@ -1038,6 +1050,14 @@ createApp({
               soundEnabled: soundEnabled.value
             }));
             setTimeout(() => { isRemoteUpdating = false; }, 100);
+          } else {
+            // 雲端若尚無資料，將本機已初始化的週資料直接備份至雲端
+            if (allDaysData.value && Object.keys(allDaysData.value).length > 0) {
+              cloudRef.set({
+                allDaysData: allDaysData.value,
+                updatedAt: Date.now()
+              }).catch(e => console.warn('首次初始化雲端失敗', e));
+            }
           }
         });
         showToast('☁️ 雲端即時同步已連線！多台電腦可即時查看');
@@ -1053,7 +1073,7 @@ createApp({
       }
       rtdb = null;
       isCloudSyncActive.value = false;
-      localStorage.removeItem('607_firebase_config');
+      localStorage.setItem('607_firebase_disabled', 'true');
       showToast('已切換回本地單機模式');
     };
 
@@ -1075,6 +1095,7 @@ createApp({
         if (!configObj || !configObj.apiKey) {
           throw new Error('缺少 apiKey');
         }
+        localStorage.removeItem('607_firebase_disabled');
         localStorage.setItem('607_firebase_config', JSON.stringify(configObj));
         initFirebase(configObj);
         showCloudSyncModal.value = false;
@@ -1615,24 +1636,23 @@ createApp({
       }
       weekDays.value.forEach(d => ensureDayData(d.iso));
 
-      // 檢查是否有儲存的 Firebase 設定或同源設定檔
-      const savedConfig = localStorage.getItem('607_firebase_config');
-      if (savedConfig) {
-        try {
-          const config = JSON.parse(savedConfig);
-          firebaseConfigInput.value = JSON.stringify(config, null, 2);
-          initFirebase(config);
-        } catch (e) {}
-      } else {
-        // 嘗試自動讀取倉庫中的 firebase-config.json
-        fetch('firebase-config.json?t=' + Date.now())
-          .then(res => res.ok ? res.json() : null)
-          .then(config => {
-            if (config && config.apiKey) {
-              firebaseConfigInput.value = JSON.stringify(config, null, 2);
-              initFirebase(config);
-            }
-          }).catch(() => {});
+      // 🌟 跨電腦即時同步自動啟動：
+      // 只要使用者未手動點擊「中斷連線」，任何電腦開啟網頁均自動連線 Firebase 即時資料庫
+      const isManuallyDisabled = localStorage.getItem('607_firebase_disabled') === 'true';
+      if (!isManuallyDisabled) {
+        const savedConfig = localStorage.getItem('607_firebase_config');
+        let activeConfig = DEFAULT_FIREBASE_CONFIG;
+        if (savedConfig) {
+          try {
+            activeConfig = JSON.parse(savedConfig);
+          } catch (e) {
+            activeConfig = DEFAULT_FIREBASE_CONFIG;
+          }
+        }
+        if (activeConfig && activeConfig.apiKey) {
+          firebaseConfigInput.value = JSON.stringify(activeConfig, null, 2);
+          initFirebase(activeConfig);
+        }
       }
     };
 
