@@ -110,9 +110,9 @@
         </div>
         <div>
           <div class="flex items-center gap-2">
-            <h1 class="text-lg sm:text-xl font-black tracking-wide text-white flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-black tracking-wide text-white flex items-center gap-2 whitespace-nowrap">
               羚藝汽泡水 作業佈告欄
-              <span class="text-xs px-2.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold hidden sm:inline-flex">
+              <span class="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold hidden xl:inline-flex">
                 607 講台清點專用
               </span>
             </h1>
@@ -120,14 +120,14 @@
             <!-- 跨電腦雲端同步狀態指示燈 (重要升級功能) -->
             <button @click="showCloudSyncModal = true"
                     :class="isCloudSyncActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'"
-                    class="text-xs px-2.5 py-0.5 rounded-full border font-bold flex items-center gap-1.5 transition cursor-pointer"
+                    class="text-[11px] px-2 py-0.5 rounded-full border font-bold flex items-center gap-1 transition cursor-pointer whitespace-nowrap"
                     :title="isCloudSyncActive ? '雲端即時同步已連線：多台電腦點選即時同步！' : '目前為本機單機模式：點此開啟多台電腦即時同步！'">
-              <span class="w-2 h-2 rounded-full" :class="isCloudSyncActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
+              <span class="w-1.5 h-1.5 rounded-full" :class="isCloudSyncActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
               <span>{{ isCloudSyncActive ? '☁️ 雲端即時連線中' : '☁️ 設定多電腦同步' }}</span>
             </button>
           </div>
 
-          <div class="text-xs text-slate-400 font-medium flex items-center gap-2 mt-0.5">
+          <div class="text-[11px] text-slate-400 font-medium flex items-center gap-2 mt-0.5">
             <span>📅 目前顯示：<strong class="text-indigo-300">{{ currentDayObject ? currentDayObject.name + ' ' + currentDayObject.shortDate : '本週總表' }}</strong></span>
             <span>•</span>
             <span>全班：<strong class="text-slate-200">26</strong> 人</span>
@@ -139,18 +139,18 @@
       </div>
 
       <!-- 右側工具快捷操作列 -->
-      <div class="flex items-center flex-wrap gap-2">
+      <div class="flex items-center flex-wrap gap-1.5">
         
         <!-- 自動同步 Padlet 按鈕 -->
         <button @click="showSyncOptionsModal = true"
-                class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition flex items-center gap-1.5 shadow-sm active:scale-95">
+                class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition flex items-center gap-1 shadow-sm active:scale-95 whitespace-nowrap">
           <span :class="{'animate-spin': syncStatus === 'syncing'}">🔄</span>
           <span>同步 Padlet</span>
         </button>
 
         <!-- 設定請假 -->
         <button v-if="activeTab !== 'summary'" @click="showAbsentModal = true"
-                class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1.5 shadow-sm">
+                class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
           <span>🩺 今日請假</span>
           <span v-if="currentAbsentList.length > 0" class="w-4 h-4 rounded-full bg-amber-500 text-slate-950 text-[10px] flex items-center justify-center font-black">
             {{ currentAbsentList.length }}
@@ -159,7 +159,7 @@
 
         <!-- 編輯作業 -->
         <button v-if="activeTab !== 'summary'" @click="showManageHomeworkModal = true"
-                class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1.5 shadow-sm">
+                class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
           <span>📝 編輯項目</span>
           <span class="w-4 h-4 rounded-full bg-sky-500 text-slate-900 text-[10px] flex items-center justify-center font-black">
             {{ currentHomeworkList.length }}
@@ -168,20 +168,20 @@
 
         <!-- 一鍵複製 LINE 催繳訊息 -->
         <button @click="copyReport"
-                class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 active:scale-95">
+                class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 shadow-lg shadow-emerald-600/30 active:scale-95 whitespace-nowrap">
           <span>📋 {{ activeTab === 'summary' ? '複製本週未交總清單' : '複製未交名單' }}</span>
         </button>
 
         <!-- 音效開關 -->
         <button @click="soundEnabled = !soundEnabled"
                 :class="soundEnabled ? 'bg-slate-800 text-emerald-400 border-slate-700' : 'bg-slate-900 text-slate-500 border-slate-800'"
-                class="px-2.5 py-1.5 rounded-xl text-xs font-bold border transition hover:bg-slate-800" :title="soundEnabled ? '點擊關閉音效' : '點擊開啟音效'">
+                class="px-2 py-1.5 rounded-xl text-xs font-bold border transition hover:bg-slate-800" :title="soundEnabled ? '點擊關閉音效' : '點擊開啟音效'">
           <span v-if="soundEnabled">🔊</span>
           <span v-else>🔇</span>
         </button>
 
         <!-- 視圖切換：組長點收模式 vs 黑板大看板模式 -->
-        <div v-if="activeTab !== 'summary'" class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <div v-if="activeTab !== 'summary'" class="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800 whitespace-nowrap">
           <button @click="currentView = 'check'"
                   :class="currentView === 'check' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-400 hover:text-white'"
                   class="px-2.5 py-1 rounded-lg text-xs transition">
@@ -361,16 +361,16 @@
         </div>
 
         <!-- 3. 座號矩陣 1 ~ 26 號（精巧好點選設計，完整呈現在單一畫面） -->
-        <div v-if="currentHw" class="bg-slate-800/60 rounded-2xl p-3.5 sm:p-4 border border-slate-700/80 shadow-2xl">
-          <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-9 gap-2">
+        <div v-if="currentHw" class="bg-slate-800/60 rounded-2xl p-3 sm:p-3.5 border border-slate-700/80 shadow-2xl">
+          <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-9 gap-1.5 sm:gap-2">
             <button v-for="seat in 26" :key="seat"
                     @click="toggleStudentStatus(currentHw.id, seat)"
                     :disabled="isAbsent(seat)"
                     :class="getSeatButtonClass(currentHw.id, seat)"
-                    class="grid-cell h-14 sm:h-[60px] rounded-xl flex flex-col items-center justify-center p-1.5 relative shadow-sm select-none border">
+                    class="grid-cell h-[52px] sm:h-14 rounded-xl flex flex-col items-center justify-center p-1 relative shadow-sm select-none border">
               
               <!-- 座號數字 -->
-              <span class="text-xl sm:text-2xl font-black tracking-tight leading-none mb-0.5">
+              <span class="text-lg sm:text-xl font-black tracking-tight leading-none mb-0.5">
                 {{ seat }}
               </span>
 
