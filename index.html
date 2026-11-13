@@ -1146,11 +1146,17 @@ createApp({
             const normalized = {};
             for (const [iso, day] of Object.entries(val.allDaysData)) {
               if (day) {
+                // 保留本地當前在各分頁選取的 activeHwId，不被雲端強制覆蓋換科
+                const localDay = allDaysData.value ? allDaysData.value[iso] : null;
+                const preservedActiveHwId = (localDay && localDay.activeHwId)
+                  ? localDay.activeHwId
+                  : (day.activeHwId || 'hw_contact_book');
+
                 normalized[iso] = {
                   homeworkList: Array.isArray(day.homeworkList) ? day.homeworkList : [{ id: 'hw_contact_book', title: '聯絡簿', isFixed: true }],
                   records: (day.records && typeof day.records === 'object') ? day.records : {},
                   absentStudents: Array.isArray(day.absentStudents) ? day.absentStudents : [],
-                  activeHwId: day.activeHwId || 'hw_contact_book',
+                  activeHwId: preservedActiveHwId,
                   padletSyncedSig: day.padletSyncedSig || '',
                   manuallyEdited: !!day.manuallyEdited
                 };
@@ -1163,10 +1169,7 @@ createApp({
             }));
             setTimeout(() => {
               isRemoteUpdating = false;
-              if (Object.keys(padletPostsMap.value).length > 0) {
-                reconcileWeekWithPadletPosts(true);
-              }
-            }, 120);
+            }, 50);
           } else {
             // 雲端若尚無資料，將本機已初始化的週資料直接備份至雲端
             if (allDaysData.value && Object.keys(allDaysData.value).length > 0) {
@@ -1268,6 +1271,31 @@ createApp({
         : [];
     });
 
+    // 細粒度雲端同步函式：精準更新單一節點，避免整包覆蓋導致競態覆寫或未交被消除
+    const syncSingleRecordToCloud = (iso, key, status) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`lingyi_607/weekly_data/allDaysData/${iso}/records/${key}`)
+          .set(status)
+          .catch(e => console.warn('雲端更新單一紀錄失敗', e));
+      }
+    };
+
+    const syncDayRecordsToCloud = (iso, recordsObj) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`lingyi_607/weekly_data/allDaysData/${iso}/records`)
+          .set(recordsObj || {})
+          .catch(e => console.warn('雲端更新當日紀錄失敗', e));
+      }
+    };
+
+    const syncDayAbsentToCloud = (iso, absentArray) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`lingyi_607/weekly_data/allDaysData/${iso}/absentStudents`)
+          .set(absentArray || [])
+          .catch(e => console.warn('雲端更新請假名單失敗', e));
+      }
+    };
+
     const activeHwId = computed({
       get() {
         if (!currentActiveDayData.value) return 'hw_contact_book';
@@ -1276,7 +1304,11 @@ createApp({
       set(val) {
         if (currentActiveDayData.value) {
           currentActiveDayData.value.activeHwId = val;
-          saveAllToStorage();
+          // 切換作業屬於本地操作視角，即時持久化至本地即可，避免觸發遠端廣播重設他人畫面
+          localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
+            allDaysData: allDaysData.value,
+            soundEnabled: soundEnabled.value
+          }));
         }
       }
     });
@@ -1293,22 +1325,31 @@ createApp({
     };
 
     const toggleAbsent = (seat) => {
-      if (!currentActiveDayData.value) return;
+      if (!currentActiveDayData.value || !currentDayObject.value) return;
       const list = currentActiveDayData.value.absentStudents;
+      const targetIso = currentDayObject.value.iso;
       if (list.includes(seat)) {
         currentActiveDayData.value.absentStudents = list.filter(s => s !== seat);
       } else {
         list.push(seat);
         list.sort((a, b) => a - b);
       }
-      saveAllToStorage();
+      localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
+        allDaysData: allDaysData.value,
+        soundEnabled: soundEnabled.value
+      }));
+      syncDayAbsentToCloud(targetIso, currentActiveDayData.value.absentStudents);
       playClickSound();
     };
 
     const clearCurrentAbsent = () => {
-      if (currentActiveDayData.value) {
+      if (currentActiveDayData.value && currentDayObject.value) {
         currentActiveDayData.value.absentStudents = [];
-        saveAllToStorage();
+        localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
+          allDaysData: allDaysData.value,
+          soundEnabled: soundEnabled.value
+        }));
+        syncDayAbsentToCloud(currentDayObject.value.iso, []);
       }
     };
 
@@ -1319,16 +1360,18 @@ createApp({
       return currentActiveDayData.value.records[key] === 'missing' ? 'missing' : 'submitted';
     };
 
-    // 切換座號已交 / 缺交 (觸發雲端即時同步)
+    // 切換座號已交 / 缺交 (細粒度即時同步雲端，絕不全包覆蓋)
     const toggleStudentStatus = (hwId, seat) => {
-      if (isAbsent(seat) || !currentActiveDayData.value) return;
+      if (isAbsent(seat) || !currentActiveDayData.value || !currentDayObject.value) return;
       const key = `${hwId}_${seat}`;
       const rec = currentActiveDayData.value.records;
       const current = rec[key] === 'missing' ? 'missing' : 'submitted';
+      const targetIso = currentDayObject.value.iso;
 
       if (current === 'submitted') {
         rec[key] = 'missing';
         playClickSound('missing');
+        syncSingleRecordToCloud(targetIso, key, 'missing');
       } else {
         rec[key] = 'submitted';
         playClickSound('click');
@@ -1336,8 +1379,14 @@ createApp({
           triggerConfetti();
           playClickSound('complete');
         }
+        syncSingleRecordToCloud(targetIso, key, 'submitted');
       }
-      saveAllToStorage();
+
+      // 本機即刻持久化
+      localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
+        allDaysData: allDaysData.value,
+        soundEnabled: soundEnabled.value
+      }));
     };
 
     const getSeatButtonClass = (hwId, seat) => {
@@ -1382,23 +1431,35 @@ createApp({
     };
 
     const markAllSubmitted = (hwId) => {
-      if (!currentActiveDayData.value) return;
+      if (!currentActiveDayData.value || !currentDayObject.value) return;
+      const targetIso = currentDayObject.value.iso;
       for (let seat = 1; seat <= 26; seat++) {
         currentActiveDayData.value.records[`${hwId}_${seat}`] = 'submitted';
       }
-      saveAllToStorage();
+      localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
+        allDaysData: allDaysData.value,
+        soundEnabled: soundEnabled.value
+      }));
+      syncDayRecordsToCloud(targetIso, currentActiveDayData.value.records);
       triggerConfetti();
       playClickSound('complete');
       showToast('已將本科設為「全部已交」');
     };
 
     const markAllMissing = (hwId) => {
-      if (!currentActiveDayData.value) return;
+      if (!currentActiveDayData.value || !currentDayObject.value) return;
       if (!confirm('確定要將此作業全部重設為「未繳交」嗎？')) return;
+      const targetIso = currentDayObject.value.iso;
       for (let seat = 1; seat <= 26; seat++) {
-        currentActiveDayData.value.records[`${hwId}_${seat}`] = 'missing';
+        if (!isAbsent(seat)) {
+          currentActiveDayData.value.records[`${hwId}_${seat}`] = 'missing';
+        }
       }
-      saveAllToStorage();
+      localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
+        allDaysData: allDaysData.value,
+        soundEnabled: soundEnabled.value
+      }));
+      syncDayRecordsToCloud(targetIso, currentActiveDayData.value.records);
       showToast('已將本科重設');
     };
 
@@ -1778,19 +1839,21 @@ createApp({
         return;
       }
 
-      const lines = text.split('\n')
+      // 支援多行或同一行內包含多個序號（例如 1. 數重41 2. 數練25 3. 國L7...）
+      const rawChunks = text
+        .split(/(?:\r?\n|(?<=\S)\s+(?=(?:[-*•]\s+|\d+\s*[\.\、\)]|\(\d+\)|（\d+）)))/g)
         .map(l => cleanTaskText(l))
         .filter(l => l.length > 0 && l !== '聯絡簿');
 
-      if (lines.length === 0) {
+      if (rawChunks.length === 0) {
         alert('無法辨識內容，請確認貼上的文字格式');
         return;
       }
 
       const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
-      applyTasksToDay(targetIso, lines, false);
+      applyTasksToDay(targetIso, rawChunks, false);
       const day = ensureDayData(targetIso);
-      day.manuallyEdited = false;
+      day.manuallyEdited = true;
 
       pasteContent.value = '';
       saveAllToStorage();

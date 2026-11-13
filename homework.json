@@ -1,8 +1,8 @@
 {
-  "updatedAt": "2026-11-11 11:37:40",
-  "postTitle": "1111",
-  "date": "2026-11-11",
-  "pubDate": "2026-11-11 03:26:46 UTC",
+  "updatedAt": "2026-11-13 13:46:20",
+  "postTitle": "1113聯絡簿",
+  "date": "2026-11-13",
+  "pubDate": "2026-11-12 10:18:24 UTC",
   "homeworkList": [
     {
       "id": "hw_contact_book",
@@ -10,18 +10,28 @@
       "isFixed": true
     },
     {
-      "id": "hw_20261111_ubmgkh",
-      "title": "國L7字形七字詩4、5（七字）",
+      "id": "hw_20261113_de35hu",
+      "title": "數重41",
       "isFixed": false
     },
     {
-      "id": "hw_20261111_nf7ad0",
-      "title": "國L7成語七字詩(14字）",
+      "id": "hw_20261113_db6htr",
+      "title": "數練25",
       "isFixed": false
     },
     {
-      "id": "hw_20261111_gyfpiw",
-      "title": "數習67、68",
+      "id": "hw_20261113_3p88e2",
+      "title": "國L7字形8~10",
+      "isFixed": false
+    },
+    {
+      "id": "hw_20261113_sciwp6",
+      "title": "國L7生詞七字詩9~16",
+      "isFixed": false
+    },
+    {
+      "id": "hw_20261113_q1eu5o",
+      "title": "說數學數練25（4）",
       "isFixed": false
     }
   ],
@@ -1625,6 +1635,11 @@
           "isFixed": true
         },
         {
+          "id": "hw_20261111_vuc8q7",
+          "title": "個人成績單",
+          "isFixed": false
+        },
+        {
           "id": "hw_20261111_ubmgkh",
           "title": "國L7字形七字詩4、5（七字）",
           "isFixed": false
@@ -1637,6 +1652,78 @@
         {
           "id": "hw_20261111_gyfpiw",
           "title": "數習67、68",
+          "isFixed": false
+        }
+      ]
+    },
+    "2026-11-12": {
+      "postTitle": "1112",
+      "pubDate": "2026-11-12 04:07:57 UTC",
+      "homeworkList": [
+        {
+          "id": "hw_contact_book",
+          "title": "聯絡簿",
+          "isFixed": true
+        },
+        {
+          "id": "hw_20261112_5awgko",
+          "title": "國L7字形七字詩6、7",
+          "isFixed": false
+        },
+        {
+          "id": "hw_20261112_5yjqqs",
+          "title": "國L7生詞七字詩1-8",
+          "isFixed": false
+        },
+        {
+          "id": "hw_20261112_dbgcd9",
+          "title": "數習69",
+          "isFixed": false
+        },
+        {
+          "id": "hw_20261112_db6htq",
+          "title": "數練24",
+          "isFixed": false
+        },
+        {
+          "id": "hw_20261112_lwr3rx",
+          "title": "準備暑假分享上台報告",
+          "isFixed": false
+        }
+      ]
+    },
+    "2026-11-13": {
+      "postTitle": "1113聯絡簿",
+      "pubDate": "2026-11-12 10:18:24 UTC",
+      "homeworkList": [
+        {
+          "id": "hw_contact_book",
+          "title": "聯絡簿",
+          "isFixed": true
+        },
+        {
+          "id": "hw_20261113_de35hu",
+          "title": "數重41",
+          "isFixed": false
+        },
+        {
+          "id": "hw_20261113_db6htr",
+          "title": "數練25",
+          "isFixed": false
+        },
+        {
+          "id": "hw_20261113_3p88e2",
+          "title": "國L7字形8~10",
+          "isFixed": false
+        },
+        {
+          "id": "hw_20261113_sciwp6",
+          "title": "國L7生詞七字詩9~16",
+          "isFixed": false
+        },
+        {
+          "id": "hw_20261113_q1eu5o",
+          "title": "說數學數練25（4）",
           "isFixed": false
         }
       ]
