@@ -1093,7 +1093,7 @@
           </div>
           <div class="text-xs text-slate-300 leading-relaxed">
             鎖定後，全班座號點選、作業編輯與請假設定將立即轉為<strong>唯讀保護模式</strong>，防止學生或組長誤觸變更。<br>
-            <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需輸入教師認證碼（607607）。</span>
+            <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需由導師輸入專屬認證碼。</span>
           </div>
         </div>
       </div>
@@ -1254,7 +1254,7 @@ createApp({
     const newHwTitle = ref('');
     const pasteContent = ref('');
 
-    // 🔒 教師鎖定看板系統 (Teacher Lock Board System) - 認證碼 607607
+    // 🔒 教師鎖定看板系統 (Teacher Lock Board System)
     const TEACHER_AUTH_CODE = '607607';
     const authCodeInput = ref('');
     const authErrorMsg = ref('');
@@ -1288,7 +1288,7 @@ createApp({
       saveAllToStorage();
       showLockConfirmModal.value = false;
       playClickSound('missing');
-      showToast('🔒 本日作業看板已鎖定！需輸入認證碼 607607 才能修改');
+      showToast('🔒 本日作業看板已鎖定！需由導師輸入認證碼才能修改');
     };
 
     const openUnlockModal = () => {
