@@ -101,18 +101,18 @@
 
   <!-- ================= 頂部狀態導覽列 ================= -->
   <header class="bg-slate-900/90 border-b border-indigo-900/50 px-4 sm:px-5 py-2 shadow-2xl backdrop-blur sticky top-0 z-40">
-    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
       
       <!-- 網站主標題與氣泡水品牌 -->
-      <div class="flex items-center space-x-3">
+      <div class="flex items-center space-x-2.5">
         <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 font-black text-xl text-white">
           🫧
         </div>
         <div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1.5">
             <h1 class="text-base sm:text-lg font-black tracking-wide text-white flex items-center gap-2 whitespace-nowrap">
               羚藝汽泡水 作業佈告欄
-              <span class="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold hidden xl:inline-flex">
+              <span class="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold hidden 2xl:inline-flex">
                 607 講台清點專用
               </span>
             </h1>
@@ -139,11 +139,11 @@
       </div>
 
       <!-- 右側工具快捷操作列 -->
-      <div class="flex items-center flex-wrap gap-1.5">
+      <div class="flex items-center flex-wrap gap-1">
         
         <!-- 自動同步 Padlet 按鈕 -->
         <button @click="showSyncOptionsModal = true"
-                class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition flex items-center gap-1 shadow-sm active:scale-95 whitespace-nowrap">
+                class="px-2 py-1.5 rounded-xl text-xs font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition flex items-center gap-1 shadow-sm active:scale-95 whitespace-nowrap">
           <span :class="{'animate-spin': syncStatus === 'syncing'}">🔄</span>
           <span>同步 Padlet</span>
         </button>
@@ -151,7 +151,7 @@
         <!-- 🏫 教室需要的工具快捷入口（含直達連結與設定齒輪） -->
         <div class="flex items-center bg-purple-950/40 border border-purple-500/40 rounded-xl p-0.5 shadow-sm">
           <button @click="handleTeachingToolClick"
-                  class="px-2.5 py-1 rounded-lg text-xs font-bold text-purple-200 hover:text-white hover:bg-purple-600/30 transition flex items-center gap-1 active:scale-95 whitespace-nowrap"
+                  class="px-2 py-1 rounded-lg text-xs font-bold text-purple-200 hover:text-white hover:bg-purple-600/30 transition flex items-center gap-1 active:scale-95 whitespace-nowrap"
                   :title="teachingToolDirectOpen ? '直達模式：點擊前往 ' + (teachingToolName || '教室工具') : '點擊開啟教室工具箱選單'">
             <span>🏫</span>
             <span>教室工具</span>
@@ -165,8 +165,8 @@
         </div>
 
         <!-- 設定請假 -->
-        <button v-if="activeTab !== 'summary'" @click="showAbsentModal = true"
-                class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
+        <button v-if="activeTab !== 'summary'" @click="handleAbsentClick"
+                class="px-2 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
           <span>🩺 今日請假</span>
           <span v-if="currentAbsentList.length > 0" class="w-4 h-4 rounded-full bg-amber-500 text-slate-950 text-[10px] flex items-center justify-center font-black">
             {{ currentAbsentList.length }}
@@ -174,18 +174,33 @@
         </button>
 
         <!-- 編輯作業 -->
-        <button v-if="activeTab !== 'summary'" @click="showManageHomeworkModal = true"
-                class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
+        <button v-if="activeTab !== 'summary'" @click="handleEditHomeworkClick"
+                class="px-2 py-1.5 rounded-xl text-xs font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
           <span>📝 編輯項目</span>
           <span class="w-4 h-4 rounded-full bg-sky-500 text-slate-900 text-[10px] flex items-center justify-center font-black">
             {{ currentHomeworkList.length }}
           </span>
         </button>
 
+        <!-- 🔒 教師鎖定看板按鍵 -->
+        <button v-if="activeTab !== 'summary'" @click="handleLockToggleClick"
+                :class="isCurrentDayLocked ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 hover:bg-rose-500/30 ring-1 ring-rose-500/40 shadow-rose-900/40 shadow-sm' : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border-slate-700'"
+                class="px-2 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 shadow-sm whitespace-nowrap active:scale-95 cursor-pointer"
+                :title="isCurrentDayLocked ? '今日看板已由導師鎖定保護中，點擊輸入認證碼解鎖' : '點擊鎖定今日看板，防止學生誤觸或更改'">
+          <span v-if="isCurrentDayLocked" class="flex items-center gap-1 text-rose-300 font-black">
+            <span class="animate-pulse">🔒</span>
+            <span>已鎖定</span>
+          </span>
+          <span v-else class="flex items-center gap-1 text-slate-300">
+            <span>🔓</span>
+            <span>鎖定看板</span>
+          </span>
+        </button>
+
         <!-- 一鍵複製 LINE 催繳訊息 -->
         <button @click="copyReport"
-                class="px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 shadow-lg shadow-emerald-600/30 active:scale-95 whitespace-nowrap">
-          <span>📋 {{ activeTab === 'summary' ? '複製本週未交總清單' : '複製未交名單' }}</span>
+                class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 shadow-lg shadow-emerald-600/30 active:scale-95 whitespace-nowrap">
+          <span>📋 {{ activeTab === 'summary' ? '複製本週未交總清單' : '複製未交' }}</span>
         </button>
 
         <!-- 音效開關 -->
@@ -265,6 +280,11 @@
                 class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black" :title="'欠 ' + getDayMissingCount(day.iso) + ' 人'">
             {{ getDayMissingCount(day.iso) }}
           </span>
+
+          <!-- 🔒 鎖定小徽章 -->
+          <span v-if="isDayLocked(day.iso)" class="text-[10px]" title="該日已被導師鎖定保護">
+            🔒
+          </span>
         </button>
 
         <!-- 本週彙整總表分頁 (每週作業缺交大盤點) -->
@@ -291,6 +311,20 @@
     <!-- ================= 視圖 A: 單日模式（週一 ~ 週五之其中一日） ================= -->
     <template v-if="activeTab !== 'summary'">
       
+      <!-- 導師鎖定看板保護告示條 (當日已鎖定時醒目展示) -->
+      <div v-if="isCurrentDayLocked"
+           class="bg-gradient-to-r from-rose-950/85 via-slate-900 to-amber-950/85 border border-rose-500/50 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-lg backdrop-blur">
+        <div class="flex items-center gap-2 text-xs sm:text-sm font-bold text-rose-200">
+          <span class="text-base animate-pulse">🔒</span>
+          <span>本日作業看板已由導師鎖定（唯讀保護模式）：所有作業與座號點選均已保護，組長或學生無法隨意改動。</span>
+        </div>
+        <button @click="openUnlockModal"
+                class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs transition shadow-md shadow-rose-600/30 flex items-center gap-1.5 active:scale-95 cursor-pointer">
+          <span>🔑</span>
+          <span>輸入認證碼解鎖</span>
+        </button>
+      </div>
+
       <!-- ================= 視圖 A-1: 組長點選登記模式 (Check View) ================= -->
       <div v-if="currentView === 'check'" class="flex-1 flex flex-col gap-3">
 
@@ -373,6 +407,11 @@
                     class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-rose-300 border border-slate-600 transition">
               ❌ 本科全部重選
             </button>
+            <button @click="handleLockToggleClick"
+                    :class="isCurrentDayLocked ? 'bg-rose-600/30 text-rose-200 border-rose-500/50 hover:bg-rose-600/40 ring-1 ring-rose-500/40' : 'bg-slate-750 hover:bg-slate-700 text-slate-300 border-slate-600'"
+                    class="px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 shadow-sm active:scale-95 cursor-pointer">
+              <span>{{ isCurrentDayLocked ? '🔒 看板已鎖定' : '🔓 鎖定看板' }}</span>
+            </button>
           </div>
         </div>
 
@@ -382,7 +421,7 @@
             <button v-for="seat in 26" :key="seat"
                     @click="toggleStudentStatus(currentHw.id, seat)"
                     :disabled="isAbsent(seat)"
-                    :class="getSeatButtonClass(currentHw.id, seat)"
+                    :class="[getSeatButtonClass(currentHw.id, seat), isCurrentDayLocked ? 'cursor-not-allowed opacity-90' : 'cursor-pointer']"
                     class="grid-cell h-[52px] sm:h-14 rounded-xl flex flex-col items-center justify-center p-1 relative shadow-sm select-none border">
               
               <!-- 座號數字 -->
@@ -1036,6 +1075,91 @@
     </div>
   </div>
 
+  <!-- ================= 彈出視窗 7: 🔒 教師確認鎖定看板對話框 ================= -->
+  <div v-if="showLockConfirmModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-rose-500/40 rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4 animate-scale-up">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-black text-white flex items-center gap-2">
+          <span>🔒 教師鎖定看板確認</span>
+        </h3>
+        <button @click="showLockConfirmModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <div class="bg-rose-950/40 border border-rose-500/30 rounded-2xl p-4 flex items-start gap-3">
+        <span class="text-2xl mt-0.5">🛡️</span>
+        <div>
+          <div class="text-sm font-black text-rose-200 mb-1">
+            確定要鎖定【{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }}】的作業看板嗎？
+          </div>
+          <div class="text-xs text-slate-300 leading-relaxed">
+            鎖定後，全班座號點選、作業編輯與請假設定將立即轉為<strong>唯讀保護模式</strong>，防止學生或組長誤觸變更。<br>
+            <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需輸入教師認證碼（607607）。</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-1">
+        <button @click="showLockConfirmModal = false"
+                class="flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs transition">
+          取消
+        </button>
+        <button @click="confirmLockBoard"
+                class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs transition shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1">
+          <span>🔒 確認鎖定</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 彈出視窗 8: 🔑 教師解鎖認證碼對話框 ================= -->
+  <div v-if="showUnlockAuthModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-indigo-500/40 rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-black text-white flex items-center gap-2">
+          <span>🔑 看板安全解鎖認證</span>
+        </h3>
+        <button @click="showUnlockAuthModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <div class="text-xs text-slate-300 leading-relaxed">
+        【{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }}】作業看板目前處於鎖定保護狀態。<br>
+        請輸入教師專屬認證碼以解除鎖定：
+      </div>
+
+      <div class="relative">
+        <input ref="authInputRef"
+               v-model="authCodeInput"
+               @keydown.enter="submitUnlockAuth"
+               :type="authShowPassword ? 'text' : 'password'"
+               maxlength="10"
+               placeholder="請輸入 6 位數認證碼"
+               class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg tracking-widest text-emerald-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono" />
+        <button @click="authShowPassword = !authShowPassword"
+                type="button"
+                class="absolute right-3 top-3 text-slate-400 hover:text-white text-sm"
+                :title="authShowPassword ? '隱藏密碼' : '顯示密碼'">
+          {{ authShowPassword ? '👁️' : '👁️‍🗨️' }}
+        </button>
+      </div>
+
+      <!-- 錯誤提示 -->
+      <div v-if="authErrorMsg" class="bg-rose-950/60 border border-rose-500/40 rounded-xl p-2.5 text-center text-rose-300 text-xs font-bold animate-pulse">
+        {{ authErrorMsg }}
+      </div>
+
+      <div class="flex gap-3 pt-1">
+        <button @click="showUnlockAuthModal = false"
+                class="flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs transition">
+          取消
+        </button>
+        <button @click="submitUnlockAuth"
+                class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-1">
+          <span>🔓 驗證並解鎖</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -1125,8 +1249,107 @@ createApp({
     const showSyncConfirmModal = ref(false);
     const showCloudSyncModal = ref(false);
     const showTeachingToolModal = ref(false);
+    const showLockConfirmModal = ref(false);
+    const showUnlockAuthModal = ref(false);
     const newHwTitle = ref('');
     const pasteContent = ref('');
+
+    // 🔒 教師鎖定看板系統 (Teacher Lock Board System) - 認證碼 607607
+    const TEACHER_AUTH_CODE = '607607';
+    const authCodeInput = ref('');
+    const authErrorMsg = ref('');
+    const authShowPassword = ref(false);
+    const authInputRef = ref(null);
+
+    const isCurrentDayLocked = computed(() => {
+      if (!currentDayObject.value) return false;
+      const day = allDaysData.value[currentDayObject.value.iso];
+      return !!(day && day.isLocked);
+    });
+
+    const isDayLocked = (iso) => {
+      const day = allDaysData.value[iso];
+      return !!(day && day.isLocked);
+    };
+
+    const handleLockToggleClick = () => {
+      if (isCurrentDayLocked.value) {
+        openUnlockModal();
+      } else {
+        showLockConfirmModal.value = true;
+      }
+    };
+
+    const confirmLockBoard = () => {
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+      const day = ensureDayData(targetIso);
+      day.isLocked = true;
+      syncDayLockToCloud(targetIso, true);
+      saveAllToStorage();
+      showLockConfirmModal.value = false;
+      playClickSound('missing');
+      showToast('🔒 本日作業看板已鎖定！需輸入認證碼 607607 才能修改');
+    };
+
+    const openUnlockModal = () => {
+      authCodeInput.value = '';
+      authErrorMsg.value = '';
+      authShowPassword.value = false;
+      showUnlockAuthModal.value = true;
+      setTimeout(() => {
+        if (authInputRef.value) {
+          authInputRef.value.focus();
+        }
+      }, 100);
+    };
+
+    const submitUnlockAuth = () => {
+      const inputEl = (authInputRef && authInputRef.value) ? authInputRef.value : document.querySelector("input[placeholder*='認證碼']");
+      const domVal = inputEl ? inputEl.value : '';
+      const code = (domVal || authCodeInput.value || '').trim();
+      authCodeInput.value = code;
+      if (code === TEACHER_AUTH_CODE) {
+        const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+        const day = ensureDayData(targetIso);
+        day.isLocked = false;
+        syncDayLockToCloud(targetIso, false);
+        saveAllToStorage();
+        showUnlockAuthModal.value = false;
+        authCodeInput.value = '';
+        authErrorMsg.value = '';
+        playClickSound('complete');
+        showToast('🔓 認證成功！看板已解除鎖定，可進行點選與編輯');
+      } else {
+        authErrorMsg.value = '❌ 認證碼錯誤，請重新輸入！';
+        playClickSound('missing');
+      }
+    };
+
+    const handleAbsentClick = () => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，修改請假名單請先解鎖！');
+        openUnlockModal();
+        return;
+      }
+      showAbsentModal.value = true;
+    };
+
+    const handleEditHomeworkClick = () => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，編輯作業項目請先解鎖！');
+        openUnlockModal();
+        return;
+      }
+      showManageHomeworkModal.value = true;
+    };
+
+    const syncDayLockToCloud = (iso, isLocked) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`lingyi_607/weekly_data/allDaysData/${iso}/isLocked`)
+          .set(!!isLocked)
+          .catch(e => console.warn('雲端更新鎖定狀態失敗', e));
+      }
+    };
 
     // 🏫 教室需要的工具管理系統 (Classroom Tools System)
     const DEFAULT_CLASSROOM_TOOL_URL = 'https://ted710317-cloud.github.io/-One/classroom.html';
@@ -1394,7 +1617,8 @@ createApp({
                   absentStudents: Array.isArray(day.absentStudents) ? day.absentStudents : [],
                   activeHwId: preservedActiveHwId,
                   padletSyncedSig: day.padletSyncedSig || '',
-                  manuallyEdited: !!day.manuallyEdited
+                  manuallyEdited: !!day.manuallyEdited,
+                  isLocked: !!day.isLocked
                 };
               }
             }
@@ -1495,7 +1719,8 @@ createApp({
           absentStudents: [],
           activeHwId: 'hw_contact_book',
           padletSyncedSig: '',
-          manuallyEdited: false
+          manuallyEdited: false,
+          isLocked: false
         };
       }
       const day = allDaysData.value[iso];
@@ -1510,6 +1735,9 @@ createApp({
       }
       if (!day.activeHwId) {
         day.activeHwId = day.homeworkList[0]?.id || 'hw_contact_book';
+      }
+      if (day.isLocked === undefined) {
+        day.isLocked = false;
       }
       return day;
     };
@@ -1585,6 +1813,11 @@ createApp({
     };
 
     const toggleAbsent = (seat) => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已被導師鎖定，修改請假請先解鎖！');
+        openUnlockModal();
+        return;
+      }
       if (!currentActiveDayData.value || !currentDayObject.value) return;
       const list = currentActiveDayData.value.absentStudents;
       const targetIso = currentDayObject.value.iso;
@@ -1603,6 +1836,11 @@ createApp({
     };
 
     const clearCurrentAbsent = () => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已被導師鎖定，清空請假請先解鎖！');
+        openUnlockModal();
+        return;
+      }
       if (currentActiveDayData.value && currentDayObject.value) {
         currentActiveDayData.value.absentStudents = [];
         localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
@@ -1622,6 +1860,11 @@ createApp({
 
     // 切換座號已交 / 缺交 (細粒度即時同步雲端，絕不全包覆蓋)
     const toggleStudentStatus = (hwId, seat) => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，點選座號請先解鎖！');
+        openUnlockModal();
+        return;
+      }
       if (isAbsent(seat) || !currentActiveDayData.value || !currentDayObject.value) return;
       const key = `${hwId}_${seat}`;
       const rec = currentActiveDayData.value.records;
@@ -1691,6 +1934,11 @@ createApp({
     };
 
     const markAllSubmitted = (hwId) => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，全班登記請先解鎖！');
+        openUnlockModal();
+        return;
+      }
       if (!currentActiveDayData.value || !currentDayObject.value) return;
       const targetIso = currentDayObject.value.iso;
       for (let seat = 1; seat <= 26; seat++) {
@@ -1707,6 +1955,11 @@ createApp({
     };
 
     const markAllMissing = (hwId) => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，全班重選請先解鎖！');
+        openUnlockModal();
+        return;
+      }
       if (!currentActiveDayData.value || !currentDayObject.value) return;
       if (!confirm('確定要將此作業全部重設為「未繳交」嗎？')) return;
       const targetIso = currentDayObject.value.iso;
@@ -1724,6 +1977,11 @@ createApp({
     };
 
     const addHomework = () => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，新增作業請先解鎖！');
+        openUnlockModal();
+        return;
+      }
       const title = newHwTitle.value.trim();
       if (!title || !currentActiveDayData.value) return;
       const id = 'hw_' + Date.now();
@@ -1736,6 +1994,11 @@ createApp({
     };
 
     const removeHomework = (id) => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，刪除作業請先解鎖！');
+        openUnlockModal();
+        return;
+      }
       if (!currentActiveDayData.value) return;
       const target = currentActiveDayData.value.homeworkList.find(h => h.id === id);
       if (target && target.isFixed) {
@@ -1827,6 +2090,10 @@ createApp({
     });
 
     const clearSpecificDebt = (dayIso, hwId, seat) => {
+      if (isDayLocked(dayIso)) {
+        showToast('🔒 該日看板已被導師鎖定！請先切換至該日解鎖後再補交');
+        return;
+      }
       const day = ensureDayData(dayIso);
       if (day) {
         day.records = day.records || {};
@@ -2323,6 +2590,20 @@ createApp({
       showSyncConfirmModal,
       showCloudSyncModal,
       showTeachingToolModal,
+      showLockConfirmModal,
+      showUnlockAuthModal,
+      authCodeInput,
+      authErrorMsg,
+      authShowPassword,
+      authInputRef,
+      isCurrentDayLocked,
+      isDayLocked,
+      handleLockToggleClick,
+      confirmLockBoard,
+      openUnlockModal,
+      submitUnlockAuth,
+      handleAbsentClick,
+      handleEditHomeworkClick,
       teachingToolUrl,
       teachingToolName,
       teachingToolDirectOpen,
