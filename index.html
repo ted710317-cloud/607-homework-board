@@ -148,6 +148,22 @@
           <span>同步 Padlet</span>
         </button>
 
+        <!-- 🛠️ 教學工具快捷入口（含直達連結與設定齒輪） -->
+        <div class="flex items-center bg-purple-950/40 border border-purple-500/40 rounded-xl p-0.5 shadow-sm">
+          <button @click="handleTeachingToolClick"
+                  class="px-2.5 py-1 rounded-lg text-xs font-bold text-purple-200 hover:text-white hover:bg-purple-600/30 transition flex items-center gap-1 active:scale-95 whitespace-nowrap"
+                  :title="teachingToolDirectOpen ? '直達模式：點擊另開分頁前往 ' + (teachingToolName || '教學工具') : '點擊開啟教學工具箱選單'">
+            <span>🛠️</span>
+            <span>教學工具</span>
+            <span class="text-[10px] text-purple-300 opacity-80">{{ teachingToolDirectOpen ? '↗' : '▼' }}</span>
+          </button>
+          <button @click="openTeachingToolSettings"
+                  class="px-1.5 py-1 rounded-lg text-xs text-purple-300/80 hover:text-white hover:bg-purple-600/40 transition"
+                  title="自訂教學工具網址與推薦平台">
+            ⚙️
+          </button>
+        </div>
+
         <!-- 設定請假 -->
         <button v-if="activeTab !== 'summary'" @click="showAbsentModal = true"
                 class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
@@ -923,6 +939,103 @@
     </div>
   </div>
 
+  <!-- ================= 彈出視窗 6: 🛠️ 我的教學工具箱 (Teaching Tools & Direct Links) ================= -->
+  <div v-if="showTeachingToolModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-5 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          <span>🛠️ 我的教學工具箱</span>
+        </h3>
+        <button @click="showTeachingToolModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <!-- 當前主要工具卡片 -->
+      <div class="bg-gradient-to-r from-purple-950/70 to-indigo-950/70 border border-purple-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+        <div class="min-w-0">
+          <div class="text-[11px] font-bold text-purple-300 uppercase tracking-wider mb-0.5">目前頂部按鈕指定工具</div>
+          <div class="text-base font-black text-white truncate">{{ teachingToolName || '未命名工具' }}</div>
+          <div class="text-xs text-slate-400 font-mono truncate max-w-md">{{ teachingToolUrl || '尚未設定網址' }}</div>
+        </div>
+        <button @click="openToolUrl(teachingToolUrl)"
+                :disabled="!teachingToolUrl"
+                class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-purple-600/30 whitespace-nowrap transition active:scale-95">
+          <span>🚀 立即開啟網頁</span>
+          <span>↗</span>
+        </button>
+      </div>
+
+      <!-- 快速切換或挑選常用教學平台 -->
+      <div class="flex flex-col gap-2">
+        <div class="text-xs font-bold text-slate-300 flex items-center justify-between">
+          <span>🌟 常用教學平台推薦（點擊開啟或一鍵設為主要工具）</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div v-for="item in defaultTeachingTools" :key="item.url"
+               class="bg-slate-900/80 border border-slate-700/80 rounded-xl p-3 flex items-center justify-between gap-2 hover:border-purple-500/50 transition">
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                <span>{{ item.icon }}</span>
+                <span class="truncate">{{ item.name }}</span>
+              </div>
+              <div class="text-[10px] text-slate-400 truncate mt-0.5">{{ item.desc }}</div>
+            </div>
+            <div class="flex items-center gap-1 flex-shrink-0">
+              <button @click="openToolUrl(item.url)"
+                      class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-cyan-300 font-bold border border-slate-700 transition"
+                      title="在新分頁開啟">
+                開啟 ↗
+              </button>
+              <button @click="setAsPrimaryTool(item)"
+                      class="px-2 py-1 rounded-lg bg-purple-600/30 hover:bg-purple-600/60 text-[11px] text-purple-200 font-bold border border-purple-500/40 transition"
+                      title="填入下方設為主要工具">
+                設預設
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 自訂主要教學工具設定 -->
+      <div class="bg-slate-900/60 border border-slate-700/60 rounded-2xl p-4 flex flex-col gap-3">
+        <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+          <span>⚙️ 自訂頂部「教學工具」按鈕網址與行為</span>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-1">
+            <label class="text-[11px] text-slate-400 block mb-1">工具名稱</label>
+            <input v-model="editToolName" type="text" placeholder="例如：班級電子布告欄"
+                   class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-[11px] text-slate-400 block mb-1">工具網址 (URL)</label>
+            <input v-model="editToolUrl" type="url" placeholder="https://..."
+                   class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 font-mono" />
+          </div>
+        </div>
+
+        <!-- 直達選項開關 -->
+        <label class="flex items-center gap-2 cursor-pointer pt-1">
+          <input type="checkbox" v-model="editToolDirect" class="w-4 h-4 rounded accent-purple-500 cursor-pointer" />
+          <span class="text-xs text-slate-300 font-medium">
+            點擊頂端「🛠️ 教學工具」按鈕時，直接在新分頁開啟此網址（直達模式，不跳此選單）
+          </span>
+        </label>
+      </div>
+
+      <div class="flex gap-3">
+        <button @click="showTeachingToolModal = false"
+                class="flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs transition">
+          關閉
+        </button>
+        <button @click="saveCustomTeachingTool"
+                class="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs transition shadow-lg shadow-purple-600/30">
+          💾 儲存並同步至雲端
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -1011,8 +1124,108 @@ createApp({
     const showSyncOptionsModal = ref(false);
     const showSyncConfirmModal = ref(false);
     const showCloudSyncModal = ref(false);
+    const showTeachingToolModal = ref(false);
     const newHwTitle = ref('');
     const pasteContent = ref('');
+
+    // 🛠️ 教學工具管理系統 (Teaching Tools System)
+    const teachingToolUrl = ref(localStorage.getItem('607_teaching_tool_url') || 'https://padlet.com/ted0317_/9bt5kg1ms2i2yy47');
+    const teachingToolName = ref(localStorage.getItem('607_teaching_tool_name') || '羚藝氣泡水 607 Padlet 班級電子布告欄');
+    const teachingToolDirectOpen = ref(localStorage.getItem('607_teaching_tool_direct') !== 'false'); // 預設直達模式 (true)
+    
+    // 編輯表單暫存變數
+    const editToolName = ref(teachingToolName.value);
+    const editToolUrl = ref(teachingToolUrl.value);
+    const editToolDirect = ref(teachingToolDirectOpen.value);
+
+    // 常用教學工具推薦清單
+    const defaultTeachingTools = ref([
+      {
+        icon: '📌',
+        name: '羚藝氣泡水 607 Padlet 班級電子布告欄',
+        desc: '607 班級主看板（發文、貼圖、公告、作業）',
+        url: 'https://padlet.com/ted0317_/9bt5kg1ms2i2yy47'
+      },
+      {
+        icon: '🏫',
+        name: '臺南市國小輔導系統',
+        desc: '臺南市國小輔導紀錄線上登記與查閱',
+        url: 'https://assist.tn.edu.tw'
+      },
+      {
+        icon: '📘',
+        name: '教育部因材網',
+        desc: '教育部適性教學數位學習平台',
+        url: 'https://adl.edu.tw'
+      },
+      {
+        icon: '🎯',
+        name: '均一教育平台',
+        desc: '國小數學與自然自主學習影片及練習題',
+        url: 'https://www.junyiacademy.org'
+      },
+      {
+        icon: '🎒',
+        name: 'Google Classroom',
+        desc: '線上課堂作業繳交與教材派送中心',
+        url: 'https://classroom.google.com'
+      }
+    ]);
+
+    const handleTeachingToolClick = () => {
+      if (teachingToolDirectOpen.value && teachingToolUrl.value) {
+        window.open(teachingToolUrl.value, '_blank', 'noopener,noreferrer');
+      } else {
+        openTeachingToolSettings();
+      }
+    };
+
+    const openTeachingToolSettings = () => {
+      editToolName.value = teachingToolName.value;
+      editToolUrl.value = teachingToolUrl.value;
+      editToolDirect.value = teachingToolDirectOpen.value;
+      showTeachingToolModal.value = true;
+    };
+
+    const openToolUrl = (url) => {
+      if (!url) return;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
+    const setAsPrimaryTool = (tool) => {
+      editToolName.value = tool.name;
+      editToolUrl.value = tool.url;
+      showToast(`已填入「${tool.name}」，點擊下方儲存即可生效！`);
+    };
+
+    const saveCustomTeachingTool = () => {
+      const url = (editToolUrl.value || '').trim();
+      const name = (editToolName.value || '').trim() || '教學工具';
+      if (!url) {
+        alert('請輸入教學工具網址');
+        return;
+      }
+      teachingToolUrl.value = url;
+      teachingToolName.value = name;
+      teachingToolDirectOpen.value = editToolDirect.value;
+
+      localStorage.setItem('607_teaching_tool_url', url);
+      localStorage.setItem('607_teaching_tool_name', name);
+      localStorage.setItem('607_teaching_tool_direct', editToolDirect.value ? 'true' : 'false');
+
+      // ☁️ 即時同步至 Firebase 雲端資料庫（讓多台電腦共用此設定）
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref('lingyi_607/teaching_tools').set({
+          url: url,
+          name: name,
+          directOpen: editToolDirect.value,
+          updatedAt: Date.now()
+        }).catch(e => console.warn('雲端同步教學工具設定失敗', e));
+      }
+
+      showToast('✅ 教學工具設定已儲存並同步！');
+      showTeachingToolModal.value = false;
+    };
 
     // Padlet 解析純函式（支援四碼如 1111、三碼如 929、斜線如 10/30、中文如 11月11日）
     const PADLET_RSS_URL = 'https://padlet.com/padlets/9bt5kg1ms2i2yy47/exports/feed.xml?token=ec86762432214910bfe2d6054e6a5af0';
@@ -1180,6 +1393,21 @@ createApp({
             }
           }
         });
+
+        // 監聽雲端教學工具設定同步
+        const toolRef = rtdb.ref('lingyi_607/teaching_tools');
+        toolRef.on('value', (snap) => {
+          const val = snap.val();
+          if (val && val.url) {
+            teachingToolUrl.value = val.url;
+            if (val.name) teachingToolName.value = val.name;
+            if (val.directOpen !== undefined) teachingToolDirectOpen.value = val.directOpen;
+            localStorage.setItem('607_teaching_tool_url', val.url);
+            if (val.name) localStorage.setItem('607_teaching_tool_name', val.name);
+            if (val.directOpen !== undefined) localStorage.setItem('607_teaching_tool_direct', val.directOpen ? 'true' : 'false');
+          }
+        });
+
         showToast('☁️ 雲端即時同步已連線！多台電腦可即時查看');
       } catch (err) {
         console.error('Firebase 連線失敗', err);
@@ -1190,6 +1418,7 @@ createApp({
     const disconnectFirebase = () => {
       if (rtdb) {
         rtdb.ref('lingyi_607/weekly_data').off();
+        rtdb.ref('lingyi_607/teaching_tools').off();
       }
       rtdb = null;
       isCloudSyncActive.value = false;
@@ -2062,6 +2291,19 @@ createApp({
       showSyncOptionsModal,
       showSyncConfirmModal,
       showCloudSyncModal,
+      showTeachingToolModal,
+      teachingToolUrl,
+      teachingToolName,
+      teachingToolDirectOpen,
+      editToolName,
+      editToolUrl,
+      editToolDirect,
+      defaultTeachingTools,
+      handleTeachingToolClick,
+      openTeachingToolSettings,
+      openToolUrl,
+      setAsPrimaryTool,
+      saveCustomTeachingTool,
       newHwTitle,
       pasteContent,
       isCloudSyncActive,
