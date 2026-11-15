@@ -148,18 +148,18 @@
           <span>同步 Padlet</span>
         </button>
 
-        <!-- 🛠️ 教學工具快捷入口（含直達連結與設定齒輪） -->
+        <!-- 🏫 教室需要的工具快捷入口（含直達連結與設定齒輪） -->
         <div class="flex items-center bg-purple-950/40 border border-purple-500/40 rounded-xl p-0.5 shadow-sm">
           <button @click="handleTeachingToolClick"
                   class="px-2.5 py-1 rounded-lg text-xs font-bold text-purple-200 hover:text-white hover:bg-purple-600/30 transition flex items-center gap-1 active:scale-95 whitespace-nowrap"
-                  :title="teachingToolDirectOpen ? '直達模式：點擊另開分頁前往 ' + (teachingToolName || '教學工具') : '點擊開啟教學工具箱選單'">
-            <span>🛠️</span>
-            <span>教學工具</span>
+                  :title="teachingToolDirectOpen ? '直達模式：點擊前往 ' + (teachingToolName || '教室工具') : '點擊開啟教室工具箱選單'">
+            <span>🏫</span>
+            <span>教室工具</span>
             <span class="text-[10px] text-purple-300 opacity-80">{{ teachingToolDirectOpen ? '↗' : '▼' }}</span>
           </button>
           <button @click="openTeachingToolSettings"
                   class="px-1.5 py-1 rounded-lg text-xs text-purple-300/80 hover:text-white hover:bg-purple-600/40 transition"
-                  title="自訂教學工具網址與推薦平台">
+                  title="自訂教室工具網址與推薦平台">
             ⚙️
           </button>
         </div>
@@ -939,12 +939,12 @@
     </div>
   </div>
 
-  <!-- ================= 彈出視窗 6: 🛠️ 我的教學工具箱 (Teaching Tools & Direct Links) ================= -->
+  <!-- ================= 彈出視窗 6: 🏫 教室需要的工具箱 (Classroom Tools & Direct Links) ================= -->
   <div v-if="showTeachingToolModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-5 max-h-[92vh] overflow-y-auto">
       <div class="flex items-center justify-between">
         <h3 class="text-xl font-black text-white flex items-center gap-2">
-          <span>🛠️ 我的教學工具箱</span>
+          <span>🏫 教室需要的工具箱</span>
         </h3>
         <button @click="showTeachingToolModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
       </div>
@@ -952,8 +952,8 @@
       <!-- 當前主要工具卡片 -->
       <div class="bg-gradient-to-r from-purple-950/70 to-indigo-950/70 border border-purple-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
         <div class="min-w-0">
-          <div class="text-[11px] font-bold text-purple-300 uppercase tracking-wider mb-0.5">目前頂部按鈕指定工具</div>
-          <div class="text-base font-black text-white truncate">{{ teachingToolName || '未命名工具' }}</div>
+          <div class="text-[11px] font-bold text-purple-300 uppercase tracking-wider mb-0.5">目前頂部按鈕直達網址</div>
+          <div class="text-base font-black text-white truncate">{{ teachingToolName || '教室工具' }}</div>
           <div class="text-xs text-slate-400 font-mono truncate max-w-md">{{ teachingToolUrl || '尚未設定網址' }}</div>
         </div>
         <button @click="openToolUrl(teachingToolUrl)"
@@ -967,7 +967,7 @@
       <!-- 快速切換或挑選常用教學平台 -->
       <div class="flex flex-col gap-2">
         <div class="text-xs font-bold text-slate-300 flex items-center justify-between">
-          <span>🌟 常用教學平台推薦（點擊開啟或一鍵設為主要工具）</span>
+          <span>🌟 常用教學與教室工具推薦（點擊開啟或一鍵設為主要工具）</span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <div v-for="item in defaultTeachingTools" :key="item.url"
@@ -998,13 +998,13 @@
       <!-- 自訂主要教學工具設定 -->
       <div class="bg-slate-900/60 border border-slate-700/60 rounded-2xl p-4 flex flex-col gap-3">
         <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-          <span>⚙️ 自訂頂部「教學工具」按鈕網址與行為</span>
+          <span>⚙️ 自訂頂部「教室工具」按鈕網址與行為</span>
         </div>
         
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div class="sm:col-span-1">
             <label class="text-[11px] text-slate-400 block mb-1">工具名稱</label>
-            <input v-model="editToolName" type="text" placeholder="例如：班級電子布告欄"
+            <input v-model="editToolName" type="text" placeholder="例如：教室需要的工具"
                    class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
           </div>
           <div class="sm:col-span-2">
@@ -1018,7 +1018,7 @@
         <label class="flex items-center gap-2 cursor-pointer pt-1">
           <input type="checkbox" v-model="editToolDirect" class="w-4 h-4 rounded accent-purple-500 cursor-pointer" />
           <span class="text-xs text-slate-300 font-medium">
-            點擊頂端「🛠️ 教學工具」按鈕時，直接在新分頁開啟此網址（直達模式，不跳此選單）
+            點擊頂端「🏫 教室工具」按鈕時，直接在新分頁開啟此網址（直達模式，不跳此選單）
           </span>
         </label>
       </div>
@@ -1128,9 +1128,26 @@ createApp({
     const newHwTitle = ref('');
     const pasteContent = ref('');
 
-    // 🛠️ 教學工具管理系統 (Teaching Tools System)
-    const teachingToolUrl = ref(localStorage.getItem('607_teaching_tool_url') || 'https://padlet.com/ted0317_/9bt5kg1ms2i2yy47');
-    const teachingToolName = ref(localStorage.getItem('607_teaching_tool_name') || '羚藝氣泡水 607 Padlet 班級電子布告欄');
+    // 🏫 教室需要的工具管理系統 (Classroom Tools System)
+    const DEFAULT_CLASSROOM_TOOL_URL = 'https://ted710317-cloud.github.io/-One/classroom.html';
+    const DEFAULT_CLASSROOM_TOOL_NAME = '教室需要的工具';
+
+    // 依使用者最新指定之 classroom.html 為主要工具
+    const versionKey = '607_classroom_tool_v2';
+    let storedToolUrl = localStorage.getItem('607_teaching_tool_url');
+    let storedToolName = localStorage.getItem('607_teaching_tool_name');
+
+    if (localStorage.getItem(versionKey) !== 'true') {
+      storedToolUrl = DEFAULT_CLASSROOM_TOOL_URL;
+      storedToolName = DEFAULT_CLASSROOM_TOOL_NAME;
+      localStorage.setItem('607_teaching_tool_url', DEFAULT_CLASSROOM_TOOL_URL);
+      localStorage.setItem('607_teaching_tool_name', DEFAULT_CLASSROOM_TOOL_NAME);
+      localStorage.setItem('607_teaching_tool_direct', 'true');
+      localStorage.setItem(versionKey, 'true');
+    }
+
+    const teachingToolUrl = ref(storedToolUrl || DEFAULT_CLASSROOM_TOOL_URL);
+    const teachingToolName = ref(storedToolName || DEFAULT_CLASSROOM_TOOL_NAME);
     const teachingToolDirectOpen = ref(localStorage.getItem('607_teaching_tool_direct') !== 'false'); // 預設直達模式 (true)
     
     // 編輯表單暫存變數
@@ -1138,8 +1155,14 @@ createApp({
     const editToolUrl = ref(teachingToolUrl.value);
     const editToolDirect = ref(teachingToolDirectOpen.value);
 
-    // 常用教學工具推薦清單
+    // 常用教室與教學工具推薦清單
     const defaultTeachingTools = ref([
+      {
+        icon: '🏫',
+        name: '教室需要的工具 (Classroom Tools)',
+        desc: '607 班級專用教室互動與教學工具總匯',
+        url: 'https://ted710317-cloud.github.io/-One/classroom.html'
+      },
       {
         icon: '📌',
         name: '羚藝氣泡水 607 Padlet 班級電子布告欄',
@@ -1223,7 +1246,7 @@ createApp({
         }).catch(e => console.warn('雲端同步教學工具設定失敗', e));
       }
 
-      showToast('✅ 教學工具設定已儲存並同步！');
+      showToast('✅ 教室工具設定已儲存並同步！');
       showTeachingToolModal.value = false;
     };
 
@@ -1394,17 +1417,25 @@ createApp({
           }
         });
 
-        // 監聽雲端教學工具設定同步
+        // 監聽雲端教室工具設定同步
         const toolRef = rtdb.ref('lingyi_607/teaching_tools');
         toolRef.on('value', (snap) => {
           const val = snap.val();
-          if (val && val.url) {
+          if (val && val.url && !val.url.includes('padlet.com') && !val.url.includes('example.com')) {
             teachingToolUrl.value = val.url;
             if (val.name) teachingToolName.value = val.name;
             if (val.directOpen !== undefined) teachingToolDirectOpen.value = val.directOpen;
             localStorage.setItem('607_teaching_tool_url', val.url);
             if (val.name) localStorage.setItem('607_teaching_tool_name', val.name);
             if (val.directOpen !== undefined) localStorage.setItem('607_teaching_tool_direct', val.directOpen ? 'true' : 'false');
+          } else {
+            // 若為首次連線、舊版 Padlet 或測試殘留，自動以指定的 classroom.html 初始化
+            toolRef.set({
+              url: DEFAULT_CLASSROOM_TOOL_URL,
+              name: DEFAULT_CLASSROOM_TOOL_NAME,
+              directOpen: true,
+              updatedAt: Date.now()
+            }).catch(e => console.warn('雲端更新教室工具失敗', e));
           }
         });
 
