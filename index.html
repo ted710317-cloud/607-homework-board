@@ -165,7 +165,7 @@
         </div>
 
         <!-- 設定請假 -->
-        <button v-if="activeTab !== 'summary'" @click="handleAbsentClick"
+        <button v-if="activeTab !== 'summary' && activeTab !== 'analytics'" @click="handleAbsentClick"
                 class="px-2 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
           <span>🩺 今日請假</span>
           <span v-if="currentAbsentList.length > 0" class="w-4 h-4 rounded-full bg-amber-500 text-slate-950 text-[10px] flex items-center justify-center font-black">
@@ -174,7 +174,7 @@
         </button>
 
         <!-- 編輯作業 -->
-        <button v-if="activeTab !== 'summary'" @click="handleEditHomeworkClick"
+        <button v-if="activeTab !== 'summary' && activeTab !== 'analytics'" @click="handleEditHomeworkClick"
                 class="px-2 py-1.5 rounded-xl text-xs font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
           <span>📝 編輯項目</span>
           <span class="w-4 h-4 rounded-full bg-sky-500 text-slate-900 text-[10px] flex items-center justify-center font-black">
@@ -183,7 +183,7 @@
         </button>
 
         <!-- 🔒 教師鎖定看板按鍵 -->
-        <button v-if="activeTab !== 'summary'" @click="handleLockToggleClick"
+        <button v-if="activeTab !== 'summary' && activeTab !== 'analytics'" @click="handleLockToggleClick"
                 :class="isCurrentDayLocked ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 hover:bg-rose-500/30 ring-1 ring-rose-500/40 shadow-rose-900/40 shadow-sm' : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border-slate-700'"
                 class="px-2 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 shadow-sm whitespace-nowrap active:scale-95 cursor-pointer"
                 :title="isCurrentDayLocked ? '今日看板已由導師鎖定保護中，點擊輸入認證碼解鎖' : '點擊鎖定今日看板，防止學生誤觸或更改'">
@@ -200,7 +200,7 @@
         <!-- 一鍵複製 LINE 催繳訊息 -->
         <button @click="copyReport"
                 class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 shadow-lg shadow-emerald-600/30 active:scale-95 whitespace-nowrap">
-          <span>📋 {{ activeTab === 'summary' ? '複製本週未交總清單' : '複製未交' }}</span>
+          <span>📋 {{ (activeTab === 'summary' || activeTab === 'analytics') ? '複製未交總清單' : '複製未交' }}</span>
         </button>
 
         <!-- 音效開關 -->
@@ -212,7 +212,7 @@
         </button>
 
         <!-- 視圖切換：組長點收模式 vs 黑板大看板模式 -->
-        <div v-if="activeTab !== 'summary'" class="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800 whitespace-nowrap">
+        <div v-if="activeTab !== 'summary' && activeTab !== 'analytics'" class="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800 whitespace-nowrap">
           <button @click="currentView = 'check'"
                   :class="currentView === 'check' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-400 hover:text-white'"
                   class="px-2.5 py-1 rounded-lg text-xs transition">
@@ -290,15 +290,23 @@
         <!-- 本週彙整總表分頁 (每週作業缺交大盤點) -->
         <button @click="activeTab = 'summary'"
                 :class="activeTab === 'summary' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white font-black shadow-lg shadow-purple-900/40 border-purple-400' : 'bg-slate-800/80 hover:bg-slate-750 text-slate-300 border-slate-700/80'"
-                class="px-4 py-2 rounded-xl text-xs sm:text-sm border transition flex items-center gap-1.5 flex-shrink-0">
+                class="px-3.5 py-2 rounded-xl text-xs sm:text-sm border transition flex items-center gap-1.5 flex-shrink-0">
           <span>📊</span>
-          <span>本週彙整總表</span>
+          <span>本週總表</span>
           <span v-if="totalWeeklyMissingCount > 0" class="px-2 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">
             欠 {{ totalWeeklyMissingCount }}
           </span>
           <span v-else-if="hasAnyTasksThisWeek" class="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black">
             全齊
           </span>
+        </button>
+
+        <!-- 📈 教師統計後臺分頁 (跨週/整學期統計、單一學生履歷查詢、匯出 Excel) -->
+        <button @click="activeTab = 'analytics'"
+                :class="activeTab === 'analytics' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-black shadow-lg shadow-amber-900/40 border-amber-300' : 'bg-slate-800/80 hover:bg-slate-750 text-amber-300 border-amber-500/40'"
+                class="px-3.5 py-2 rounded-xl text-xs sm:text-sm border transition flex items-center gap-1.5 flex-shrink-0">
+          <span>📈</span>
+          <span>學期統計後臺</span>
         </button>
       </div>
 
@@ -309,7 +317,7 @@
   <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 flex flex-col gap-3">
 
     <!-- ================= 視圖 A: 單日模式（週一 ~ 週五之其中一日） ================= -->
-    <template v-if="activeTab !== 'summary'">
+    <template v-if="activeTab !== 'summary' && activeTab !== 'analytics'">
       
       <!-- 導師鎖定看板保護告示條 (當日已鎖定時醒目展示) -->
       <div v-if="isCurrentDayLocked"
@@ -645,11 +653,15 @@
                   :class="getStudentTotalDebt(seat).length > 0 ? 'bg-rose-950/15 hover:bg-rose-950/30' : 'hover:bg-slate-800/40'"
                   class="transition">
                 
-                <!-- 座號 -->
+                <!-- 座號 (點擊可開啟該生完整歷史履歷卡) -->
                 <td class="py-3 px-3 font-black text-center text-sm">
-                  <span :class="getStudentTotalDebt(seat).length > 0 ? 'text-rose-400 font-black' : 'text-slate-300'">
-                    {{ seat }} 號
-                  </span>
+                  <button @click="openStudentHistoryModal(seat)"
+                          :class="getStudentTotalDebt(seat).length > 0 ? 'text-rose-400 font-black hover:underline' : 'text-slate-200 hover:text-cyan-300 hover:underline'"
+                          class="cursor-pointer flex items-center justify-center gap-1 mx-auto"
+                          title="點擊查看該生完整歷史紀錄與家長通知">
+                    <span>{{ seat }} 號</span>
+                    <span class="text-[10px] opacity-70">🔍</span>
+                  </button>
                 </td>
 
                 <!-- 週一 ~ 週五 各天狀態 -->
@@ -689,7 +701,353 @@
       </div>
     </template>
 
+
+    <!-- ================= 視圖 C: 📈 教師學期統計後臺 (跨週/整學期統計、個人履歷、匯出 Excel CSV) ================= -->
+    <template v-if="activeTab === 'analytics'">
+      <div class="flex-1 flex flex-col gap-5">
+
+        <!-- 1. 頂部後臺控制中心與總覽儀表板 -->
+        <div class="bg-gradient-to-r from-amber-950/70 via-slate-900 to-indigo-950/80 border border-amber-500/40 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-4">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center flex-wrap gap-2">
+                <h2 class="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
+                  <span>📈 607 教師學期作業統計後臺</span>
+                </h2>
+                <span class="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                  雲端歷史資料庫即時分析
+                </span>
+              </div>
+              <p class="text-slate-300 text-xs sm:text-sm mt-1">
+                自動彙整所有已登記日期的作業繳交紀錄。點擊任一座號可調出「🔍 個人歷史履歷 & 一鍵複製家長通知」，或匯出 Excel 報表供平時成績評量。
+              </p>
+            </div>
+
+            <!-- 匯出 Excel CSV 雙按鈕 -->
+            <div class="flex flex-wrap items-center gap-2">
+              <button @click="exportStudentSummaryCsv"
+                      class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 active:scale-95 cursor-pointer">
+                <span>📥</span>
+                <span>匯出全班個人統計表 (Excel CSV)</span>
+              </button>
+              <button @click="exportDailyDetailCsv"
+                      class="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xs transition shadow-lg shadow-cyan-600/30 flex items-center gap-1.5 active:scale-95 cursor-pointer">
+                <span>📋</span>
+                <span>匯出每日各科明細表 (Excel CSV)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 篩選統計區間與排序列 -->
+          <div class="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+            <!-- 統計區間切換 -->
+            <div class="flex items-center flex-wrap gap-1.5">
+              <span class="text-xs font-bold text-slate-400 mr-1">📅 統計範圍：</span>
+              <button @click="analyticsRange = 'all'"
+                      :class="analyticsRange === 'all' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'"
+                      class="px-3 py-1 rounded-lg text-xs transition">
+                全部歷史紀錄 ({{ analyticsFilteredDays.length }} 天)
+              </button>
+              <button @click="analyticsRange = 'month'"
+                      :class="analyticsRange === 'month' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'"
+                      class="px-3 py-1 rounded-lg text-xs transition">
+                本月紀錄
+              </button>
+              <button @click="analyticsRange = 'week'"
+                      :class="analyticsRange === 'week' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'"
+                      class="px-3 py-1 rounded-lg text-xs transition">
+                當前所選週 ({{ weekLabel }})
+              </button>
+            </div>
+
+            <!-- 排序方式切換 -->
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-bold text-slate-400 mr-1">🔃 排序方式：</span>
+              <button @click="analyticsSortBy = 'seat'"
+                      :class="analyticsSortBy === 'seat' ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'"
+                      class="px-3 py-1 rounded-lg text-xs transition">
+                依座號 (1~26號)
+              </button>
+              <button @click="analyticsSortBy = 'missing'"
+                      :class="analyticsSortBy === 'missing' ? 'bg-rose-600 text-white font-black' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'"
+                      class="px-3 py-1 rounded-lg text-xs transition">
+                依未交數量 (高→低)
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 大核心統計指標卡片 -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 text-center">
+              <div class="text-xs text-slate-400 font-bold">已記錄上課天數</div>
+              <div class="text-2xl font-black text-cyan-400 mt-0.5">{{ analyticsOverview.totalDays }} 天</div>
+              <div class="text-[11px] text-slate-500">累計 {{ analyticsOverview.totalTasks }} 項作業</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 text-center">
+              <div class="text-xs text-slate-400 font-bold">全班平均繳交率</div>
+              <div class="text-2xl font-black text-emerald-400 mt-0.5">{{ analyticsOverview.avgSubmitRate }}%</div>
+              <div class="text-[11px] text-slate-500">應交總計 {{ analyticsOverview.totalExpected }} 人次</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 text-center">
+              <div class="text-xs text-slate-400 font-bold">期間累計未交總計</div>
+              <div class="text-2xl font-black text-rose-400 mt-0.5">{{ analyticsOverview.totalMissing }} 人次</div>
+              <div class="text-[11px] text-slate-500">涉及 {{ analyticsOverview.studentsWithMissing }} 位同學</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 text-center">
+              <div class="text-xs text-slate-400 font-bold">100% 零缺交模範生</div>
+              <div class="text-2xl font-black text-amber-400 mt-0.5">{{ analyticsOverview.perfectStudentsCount }} 人</div>
+              <div class="text-[11px] text-slate-500">期間內作業全數準時完成</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 全班 1 ~ 26 號個人累計統計與欠交追蹤總表 -->
+        <div class="bg-slate-800/75 border border-slate-700/80 rounded-3xl p-5 shadow-xl overflow-x-auto">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-700/70">
+            <h3 class="text-lg font-black text-white flex items-center gap-2">
+              <span>📋 全班學生個人作業統計與歷史欠交追蹤表</span>
+            </h3>
+            <span class="text-xs text-amber-300 font-bold">
+              💡 點擊「🔍 個人履歷 / 家長通知」可查看該生每日明細並一鍵複製家長 LINE 訊息
+            </span>
+          </div>
+
+          <table class="w-full text-left text-xs sm:text-sm border-collapse min-w-[780px]">
+            <thead>
+              <tr class="border-b border-slate-700 text-slate-400 uppercase tracking-wider">
+                <th class="py-3 px-3 font-bold w-20 text-center">座號</th>
+                <th class="py-3 px-3 font-bold text-center w-24">應交項次</th>
+                <th class="py-3 px-3 font-bold text-center w-24">已交項次</th>
+                <th class="py-3 px-3 font-bold text-center w-24">尚欠項次</th>
+                <th class="py-3 px-3 font-bold text-center w-20">請假天數</th>
+                <th class="py-3 px-3 font-bold w-40">累計繳交率</th>
+                <th class="py-3 px-3 font-bold">目前尚未補交作業明細（點擊可直接補交）</th>
+                <th class="py-3 px-3 font-bold text-center w-32">個人履歷</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+              <tr v-for="stat in sortedStudentAnalytics" :key="stat.seat"
+                  :class="stat.missingCount > 0 ? 'bg-rose-950/15 hover:bg-rose-950/30' : 'hover:bg-slate-800/50'"
+                  class="transition">
+                
+                <!-- 座號 -->
+                <td class="py-3 px-3 font-black text-center">
+                  <button @click="openStudentHistoryModal(stat.seat)"
+                          :class="stat.missingCount > 0 ? 'bg-rose-600 text-white' : 'bg-slate-700 text-emerald-300'"
+                          class="w-9 h-9 rounded-xl font-black text-sm flex items-center justify-center mx-auto shadow hover:scale-105 transition cursor-pointer">
+                    {{ stat.seat }}
+                  </button>
+                </td>
+
+                <!-- 應交 -->
+                <td class="py-3 px-3 text-center font-mono text-slate-300 font-bold">
+                  {{ stat.expectedCount }}
+                </td>
+
+                <!-- 已交 -->
+                <td class="py-3 px-3 text-center font-mono text-emerald-400 font-black">
+                  {{ stat.submittedCount }}
+                </td>
+
+                <!-- 尚欠 -->
+                <td class="py-3 px-3 text-center">
+                  <span v-if="stat.missingCount === 0" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold">
+                    0
+                  </span>
+                  <span v-else class="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-xs font-black shadow">
+                    欠 {{ stat.missingCount }}
+                  </span>
+                </td>
+
+                <!-- 請假天數 -->
+                <td class="py-3 px-3 text-center font-mono text-amber-300">
+                  {{ stat.absentDays > 0 ? stat.absentDays + ' 天' : '-' }}
+                </td>
+
+                <!-- 繳交率進度條 -->
+                <td class="py-3 px-3">
+                  <div class="flex items-center gap-2">
+                    <div class="w-24 bg-slate-700 rounded-full h-2 overflow-hidden flex-shrink-0">
+                      <div :class="stat.submitRate === 100 ? 'bg-emerald-400' : (stat.submitRate >= 80 ? 'bg-cyan-400' : 'bg-rose-500')"
+                           class="h-full rounded-full transition-all"
+                           :style="{ width: stat.submitRate + '%' }"></div>
+                    </div>
+                    <span :class="stat.submitRate === 100 ? 'text-emerald-400' : (stat.submitRate >= 80 ? 'text-cyan-300' : 'text-rose-400')"
+                          class="font-mono font-black text-xs">
+                      {{ stat.submitRate }}%
+                    </span>
+                  </div>
+                </td>
+
+                <!-- 尚未補交明細標籤 -->
+                <td class="py-2.5 px-3">
+                  <span v-if="stat.missingItems.length === 0" class="text-xs text-emerald-400/90 font-bold">
+                    ✨ 全數準時繳齊
+                  </span>
+                  <div v-else class="flex flex-wrap gap-1.5">
+                    <span v-for="(item, iIdx) in stat.missingItems" :key="iIdx"
+                          @click="clearSpecificDebt(item.iso, item.hwId, stat.seat)"
+                          class="px-2 py-0.5 rounded-lg bg-rose-500/20 hover:bg-emerald-600/40 text-rose-200 hover:text-emerald-200 border border-rose-500/40 text-xs font-bold cursor-pointer transition flex items-center gap-1"
+                          title="點擊即可標記為已補交">
+                      <span>{{ item.shortDate }} {{ item.hwTitle }}</span>
+                      <span class="text-[10px] opacity-75">✔</span>
+                    </span>
+                  </div>
+                </td>
+
+                <!-- 開啟個人履歷按鈕 -->
+                <td class="py-3 px-3 text-center">
+                  <button @click="openStudentHistoryModal(stat.seat)"
+                          class="px-2.5 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white border border-indigo-500/40 text-xs font-bold transition whitespace-nowrap cursor-pointer">
+                    🔍 履歷 / 通知
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 3. 每日歷史紀錄快速查閱清單 -->
+        <div class="bg-slate-800/75 border border-slate-700/80 rounded-3xl p-5 shadow-xl">
+          <h3 class="text-lg font-black text-white mb-3 flex items-center gap-2">
+            <span>🗓️ 歷史每日作業登記存檔一覽（共 {{ analyticsDailyHistory.length }} 筆有效日期紀錄）</span>
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div v-for="dayLog in analyticsDailyHistory" :key="dayLog.iso"
+                 class="bg-slate-900/80 border border-slate-700/80 rounded-2xl p-3.5 flex flex-col justify-between gap-2 hover:border-indigo-500/50 transition">
+              <div>
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-mono font-black text-sm text-indigo-300">{{ dayLog.iso }}</span>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-bold">{{ dayLog.weekdayName }}</span>
+                    <span v-if="dayLog.isLocked" class="text-xs" title="已鎖定">🔒</span>
+                  </div>
+                  <button @click="jumpToHistoricalDate(dayLog.iso)"
+                          class="text-xs text-cyan-400 hover:underline font-bold cursor-pointer">
+                    前往該日看板 →
+                  </button>
+                </div>
+
+                <!-- 該日各科缺交摘要 -->
+                <div class="flex flex-col gap-1">
+                  <div v-for="hw in dayLog.hwSummary" :key="hw.id" class="text-xs flex items-center justify-between gap-2">
+                    <span class="text-slate-200 font-bold truncate">• {{ hw.title }}</span>
+                    <span v-if="hw.missingSeats.length === 0" class="text-emerald-400 font-bold whitespace-nowrap text-[11px]">全齊 🎉</span>
+                    <span v-else class="text-rose-400 font-black whitespace-nowrap text-[11px]">
+                      缺 {{ hw.missingSeats.join(', ') }}號
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="dayLog.absentSeats.length > 0" class="text-[11px] text-amber-400 pt-1.5 border-t border-slate-800/80">
+                🩺 請假：{{ dayLog.absentSeats.join(', ') }} 號
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </template>
+
   </main>
+
+
+  <!-- ================= 彈出視窗 0: 🔍 單一學生歷史作業履歷 & 家長專屬 LINE 通知卡 ================= -->
+  <div v-if="showStudentHistoryModal && selectedStudentProfile" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-800 border border-indigo-500/50 rounded-3xl max-w-2xl w-full p-6 shadow-2xl flex flex-col gap-4 my-auto max-h-[90vh]">
+      
+      <!-- 標題列 -->
+      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+        <div class="flex items-center gap-3">
+          <div :class="selectedStudentProfile.missingCount > 0 ? 'bg-rose-600' : 'bg-emerald-600'"
+               class="w-11 h-11 rounded-2xl text-white font-black text-xl flex items-center justify-center shadow-lg">
+            {{ selectedStudentProfile.seat }}
+          </div>
+          <div>
+            <h3 class="text-xl font-black text-white flex items-center gap-2">
+              <span>607 班 【{{ selectedStudentProfile.seat }} 號同學】個人作業履歷卡</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              統計範圍：{{ analyticsRangeLabel }}（共 {{ selectedStudentProfile.expectedCount }} 項應交作業）
+            </p>
+          </div>
+        </div>
+        <button @click="showStudentHistoryModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <!-- 個人統計數據小卡 -->
+      <div class="grid grid-cols-4 gap-2.5">
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-2.5 text-center">
+          <div class="text-[11px] text-slate-400 font-bold">應交總數</div>
+          <div class="text-lg font-black text-white">{{ selectedStudentProfile.expectedCount }} 項</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-2.5 text-center">
+          <div class="text-[11px] text-slate-400 font-bold">已交項數</div>
+          <div class="text-lg font-black text-emerald-400">{{ selectedStudentProfile.submittedCount }} 項</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-2.5 text-center">
+          <div class="text-[11px] text-slate-400 font-bold">尚欠項數</div>
+          <div class="text-lg font-black text-rose-400">{{ selectedStudentProfile.missingCount }} 項</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-2.5 text-center">
+          <div class="text-[11px] text-slate-400 font-bold">個人繳交率</div>
+          <div class="text-lg font-black text-cyan-400">{{ selectedStudentProfile.submitRate }}%</div>
+        </div>
+      </div>
+
+      <!-- 尚未補交項目清單 -->
+      <div class="bg-slate-900/80 border border-slate-700/80 rounded-2xl p-4 overflow-y-auto max-h-60">
+        <div class="text-xs font-black text-slate-300 mb-2.5 flex items-center justify-between">
+          <span>⚠️ 目前尚未補交之作業項目（共 {{ selectedStudentProfile.missingItems.length }} 項）：</span>
+          <span v-if="selectedStudentProfile.missingItems.length > 0" class="text-[11px] text-emerald-400">點擊右側按鈕可立即銷帳補交</span>
+        </div>
+
+        <div v-if="selectedStudentProfile.missingItems.length === 0" class="text-center py-6 text-emerald-400 font-black text-base">
+          🎉 太棒了！{{ selectedStudentProfile.seat }} 號同學在統計期間內所有作業皆已準時繳齊！
+        </div>
+
+        <div v-else class="flex flex-col gap-2">
+          <div v-for="(item, idx) in selectedStudentProfile.missingItems" :key="idx"
+               class="bg-slate-950/80 border border-rose-500/40 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 text-xs sm:text-sm">
+              <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono font-bold text-xs">
+                {{ item.iso }} ({{ item.weekdayName }})
+              </span>
+              <span class="font-black text-white">{{ item.hwTitle }}</span>
+            </div>
+            <button @click="clearSpecificDebt(item.iso, item.hwId, selectedStudentProfile.seat)"
+                    class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition cursor-pointer">
+              ✔ 標記已補交
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 快速切換查看其他座號 -->
+      <div class="flex items-center flex-wrap gap-1 pt-1">
+        <span class="text-[11px] text-slate-400 font-bold mr-1">快速切換座號：</span>
+        <button v-for="s in 26" :key="s"
+                @click="selectedStudentSeat = s"
+                :class="selectedStudentSeat === s ? 'bg-indigo-600 text-white font-black ring-2 ring-cyan-400' : 'bg-slate-900 text-slate-400 hover:bg-slate-700'"
+                class="w-6 h-6 rounded-md text-[11px] transition flex items-center justify-center">
+          {{ s }}
+        </button>
+      </div>
+
+      <!-- 底部操作按鈕：一鍵複製家長專屬 LINE 通知 -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-700">
+        <button @click="copySingleStudentParentNotice(selectedStudentProfile)"
+                class="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 cursor-pointer">
+          <span>💬 一鍵複製【{{ selectedStudentProfile.seat }} 號家長專屬 LINE 通知】</span>
+        </button>
+        <button @click="showStudentHistoryModal = false"
+                class="py-2.5 px-5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs sm:text-sm transition">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
 
 
   <!-- ================= 彈出視窗 1: 設定今日請假名單 ================= -->
@@ -1218,7 +1576,7 @@ createApp({
 
     const changeWeek = (offset) => {
       weekOffset.value += offset;
-      if (activeTab.value !== 'summary') {
+      if (activeTab.value !== 'summary' && activeTab.value !== 'analytics') {
         activeTab.value = weekDays.value[0].iso;
       }
     };
@@ -2157,6 +2515,351 @@ createApp({
       }
     };
 
+    // ================= 📈 教師學期統計後臺 & 個人履歷 & Excel 匯出引擎 =================
+    const analyticsRange = ref('all'); // 'all' | 'month' | 'week'
+    const analyticsSortBy = ref('seat'); // 'seat' | 'missing'
+    const showStudentHistoryModal = ref(false);
+    const selectedStudentSeat = ref(1);
+
+    const getWeekdayNameFromIso = (iso) => {
+      const parts = (iso || '').split('-');
+      if (parts.length !== 3) return '';
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const map = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+      return map[d.getDay()] || '';
+    };
+
+    const getShortDateFromIso = (iso) => {
+      const parts = (iso || '').split('-');
+      if (parts.length !== 3) return iso;
+      return `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+    };
+
+    // 判定某日是否為「有效已登記上課日」（有排定多項作業、或有缺交/請假/鎖定紀錄、或位於本週且不高於今日）
+    const isActiveSchoolDay = (iso, day) => {
+      if (!day || !iso) return false;
+      const hwCount = Array.isArray(day.homeworkList) ? day.homeworkList.length : 0;
+      const hasRecords = day.records && Object.keys(day.records).length > 0;
+      const hasAbsent = Array.isArray(day.absentStudents) && day.absentStudents.length > 0;
+      if (hwCount > 1 || hasRecords || hasAbsent || day.isLocked || day.manuallyEdited || day.padletSyncedSig) {
+        return true;
+      }
+      // 若為今日或本週已過去的平日且至少有聯絡簿
+      if (iso <= todayIso && hwCount >= 1) {
+        return true;
+      }
+      return false;
+    };
+
+    const analyticsRangeLabel = computed(() => {
+      if (analyticsRange.value === 'week') return `所選週次 (${weekLabel.value})`;
+      if (analyticsRange.value === 'month') return `本月 (${todayIso.slice(0, 7)})`;
+      return '全部歷史紀錄';
+    });
+
+    const analyticsFilteredDays = computed(() => {
+      const allMap = allDaysData.value || {};
+      const currentMonthPrefix = todayIso.slice(0, 7);
+      const weekIsoSet = new Set(weekDays.value.map(d => d.iso));
+
+      return Object.keys(allMap)
+        .filter(iso => {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+          if (!isActiveSchoolDay(iso, allMap[iso])) return false;
+          if (analyticsRange.value === 'week') return weekIsoSet.has(iso);
+          if (analyticsRange.value === 'month') return iso.startsWith(currentMonthPrefix);
+          return true;
+        })
+        .sort();
+    });
+
+    const studentAnalyticsList = computed(() => {
+      const days = analyticsFilteredDays.value;
+      const allMap = allDaysData.value || {};
+      const result = [];
+
+      for (let seat = 1; seat <= 26; seat++) {
+        let expectedCount = 0;
+        let missingCount = 0;
+        let absentDays = 0;
+        const missingItems = [];
+
+        days.forEach(iso => {
+          const day = allMap[iso];
+          if (!day) return;
+          const absentList = Array.isArray(day.absentStudents) ? day.absentStudents : [];
+          if (absentList.includes(seat)) {
+            absentDays++;
+            return;
+          }
+          const hwList = Array.isArray(day.homeworkList) ? day.homeworkList : [];
+          const records = day.records || {};
+          hwList.forEach(hw => {
+            expectedCount++;
+            if (records[`${hw.id}_${seat}`] === 'missing') {
+              missingCount++;
+              missingItems.push({
+                iso,
+                shortDate: getShortDateFromIso(iso),
+                weekdayName: getWeekdayNameFromIso(iso),
+                hwId: hw.id,
+                hwTitle: hw.title
+              });
+            }
+          });
+        });
+
+        const submittedCount = Math.max(0, expectedCount - missingCount);
+        const submitRate = expectedCount > 0 ? Math.round((submittedCount / expectedCount) * 100) : 100;
+
+        result.push({
+          seat,
+          expectedCount,
+          submittedCount,
+          missingCount,
+          absentDays,
+          submitRate,
+          missingItems
+        });
+      }
+      return result;
+    });
+
+    const sortedStudentAnalytics = computed(() => {
+      const copy = [...studentAnalyticsList.value];
+      if (analyticsSortBy.value === 'missing') {
+        copy.sort((a, b) => (b.missingCount - a.missingCount) || (a.seat - b.seat));
+      } else {
+        copy.sort((a, b) => a.seat - b.seat);
+      }
+      return copy;
+    });
+
+    const analyticsOverview = computed(() => {
+      const days = analyticsFilteredDays.value;
+      const allMap = allDaysData.value || {};
+      let totalTasks = 0;
+      days.forEach(iso => {
+        const hwList = allMap[iso]?.homeworkList;
+        if (Array.isArray(hwList)) totalTasks += hwList.length;
+      });
+
+      let totalExpected = 0;
+      let totalSubmitted = 0;
+      let totalMissing = 0;
+      let studentsWithMissing = 0;
+      let perfectStudentsCount = 0;
+
+      studentAnalyticsList.value.forEach(st => {
+        totalExpected += st.expectedCount;
+        totalSubmitted += st.submittedCount;
+        totalMissing += st.missingCount;
+        if (st.missingCount > 0) studentsWithMissing++;
+        else perfectStudentsCount++;
+      });
+
+      const avgSubmitRate = totalExpected > 0 ? Math.round((totalSubmitted / totalExpected) * 100) : 100;
+
+      return {
+        totalDays: days.length,
+        totalTasks,
+        totalExpected,
+        totalSubmitted,
+        totalMissing,
+        avgSubmitRate,
+        studentsWithMissing,
+        perfectStudentsCount
+      };
+    });
+
+    const analyticsDailyHistory = computed(() => {
+      const days = [...analyticsFilteredDays.value].sort().reverse();
+      const allMap = allDaysData.value || {};
+      return days.map(iso => {
+        const day = allMap[iso] || {};
+        const hwList = Array.isArray(day.homeworkList) ? day.homeworkList : [];
+        const absentSeats = Array.isArray(day.absentStudents) ? day.absentStudents : [];
+        const records = day.records || {};
+
+        const hwSummary = hwList.map(hw => {
+          const missingSeats = [];
+          for (let seat = 1; seat <= 26; seat++) {
+            if (!absentSeats.includes(seat) && records[`${hw.id}_${seat}`] === 'missing') {
+              missingSeats.push(seat);
+            }
+          }
+          return {
+            id: hw.id,
+            title: hw.title,
+            missingSeats
+          };
+        });
+
+        return {
+          iso,
+          weekdayName: getWeekdayNameFromIso(iso),
+          isLocked: !!day.isLocked,
+          absentSeats,
+          hwSummary
+        };
+      });
+    });
+
+    const selectedStudentProfile = computed(() => {
+      return studentAnalyticsList.value.find(s => s.seat === selectedStudentSeat.value) || studentAnalyticsList.value[0];
+    });
+
+    const openStudentHistoryModal = (seat) => {
+      selectedStudentSeat.value = seat;
+      showStudentHistoryModal.value = true;
+    };
+
+    const jumpToHistoricalDate = (targetIso) => {
+      const parts = targetIso.split('-');
+      if (parts.length === 3) {
+        const targetDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const currMon = new Date(now);
+        const currDay = currMon.getDay();
+        currMon.setDate(currMon.getDate() - (currDay === 0 ? 6 : currDay - 1));
+        currMon.setHours(0, 0, 0, 0);
+
+        const targetMon = new Date(targetDate);
+        const tDay = targetMon.getDay();
+        targetMon.setDate(targetMon.getDate() - (tDay === 0 ? 6 : tDay - 1));
+        targetMon.setHours(0, 0, 0, 0);
+
+        const diffWeeks = Math.round((targetMon - currMon) / (7 * 24 * 60 * 60 * 1000));
+        weekOffset.value = diffWeeks;
+        activeTab.value = targetIso;
+      }
+    };
+
+    const copySingleStudentParentNotice = (profile) => {
+      if (!profile) return;
+      let text = `💌【607 班級作業繳交狀況溫馨通知】\n`;
+      text += `家長您好，以下為貴子弟（${profile.seat} 號同學）於「${analyticsRangeLabel.value}」之作業清點紀錄：\n`;
+      text += `------------------------------------\n`;
+      text += `📊 應交總數：${profile.expectedCount} 項\n`;
+      text += `✅ 已交項數：${profile.submittedCount} 項（繳交率 ${profile.submitRate}%）\n`;
+      if (profile.absentDays > 0) {
+        text += `🩺 請假天數：${profile.absentDays} 天\n`;
+      }
+      if (profile.missingItems.length === 0) {
+        text += `🎉 目前所有作業皆已準時繳齊，表現非常棒！感謝家長的督促與配合！\n`;
+      } else {
+        text += `⚠️ 目前尚有 ${profile.missingItems.length} 項作業待補交：\n`;
+        profile.missingItems.forEach((item, idx) => {
+          text += `  ${idx + 1}. ${item.iso} (${item.weekdayName})：【${item.hwTitle}】\n`;
+        });
+        text += `------------------------------------\n`;
+        text += `再請家長協助叮嚀孩子完成並帶至學校補交，謝謝您的合作！🙏`;
+      }
+
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(`✅ 已複製 ${profile.seat} 號家長專屬 LINE 通知！`);
+      }).catch(() => alert(text));
+    };
+
+    const downloadCsvFile = (filename, csvContent) => {
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+
+    const escapeCsvField = (val) => {
+      const str = String(val === undefined || val === null ? '' : val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    // 匯出 1：全班個人累計統計表 (適合打平時成績)
+    const exportStudentSummaryCsv = () => {
+      const headers = ['座號', '統計範圍', '應交總項次', '已交項次', '尚欠項次', '請假天數', '繳交率(%)', '尚未補交作業明細'];
+      const rows = [headers.map(escapeCsvField).join(',')];
+
+      studentAnalyticsList.value.forEach(st => {
+        const missingDesc = st.missingItems.map(m => `${m.shortDate}(${m.weekdayName}) ${m.hwTitle}`).join('；');
+        const row = [
+          `${st.seat}號`,
+          analyticsRangeLabel.value,
+          st.expectedCount,
+          st.submittedCount,
+          st.missingCount,
+          st.absentDays,
+          `${st.submitRate}%`,
+          missingDesc || '全數繳齊'
+        ];
+        rows.push(row.map(escapeCsvField).join(','));
+      });
+
+      downloadCsvFile(`607班_學生作業累計統計表_${todayIso}.csv`, rows.join('\r\n'));
+      showToast('📥 已匯出「全班個人統計表 (Excel CSV)」！');
+    };
+
+    // 匯出 2：每日各科缺交明細總表 (包含 1~26 號逐日逐科狀態)
+    const exportDailyDetailCsv = () => {
+      const seatHeaders = [];
+      for (let s = 1; s <= 26; s++) seatHeaders.push(`${s}號`);
+      const headers = ['日期', '星期', '作業項目', '應交人數', '已交人數', '未交人數', '請假座號', '未交座號清單', ...seatHeaders];
+      const rows = [headers.map(escapeCsvField).join(',')];
+
+      const days = [...analyticsFilteredDays.value].sort();
+      const allMap = allDaysData.value || {};
+
+      days.forEach(iso => {
+        const day = allMap[iso];
+        if (!day) return;
+        const weekday = getWeekdayNameFromIso(iso);
+        const absentSeats = Array.isArray(day.absentStudents) ? day.absentStudents : [];
+        const hwList = Array.isArray(day.homeworkList) ? day.homeworkList : [];
+        const records = day.records || {};
+
+        hwList.forEach(hw => {
+          const missingSeats = [];
+          let submitted = 0;
+          const seatStatuses = [];
+
+          for (let s = 1; s <= 26; s++) {
+            if (absentSeats.includes(s)) {
+              seatStatuses.push('請假');
+            } else if (records[`${hw.id}_${s}`] === 'missing') {
+              missingSeats.push(s);
+              seatStatuses.push('未交');
+            } else {
+              submitted++;
+              seatStatuses.push('已交');
+            }
+          }
+
+          const expected = 26 - absentSeats.length;
+          const row = [
+            iso,
+            weekday,
+            hw.title,
+            expected,
+            submitted,
+            missingSeats.length,
+            absentSeats.length > 0 ? absentSeats.map(x => `${x}號`).join('、') : '無',
+            missingSeats.length > 0 ? missingSeats.map(x => `${x}號`).join('、') : '全齊',
+            ...seatStatuses
+          ];
+          rows.push(row.map(escapeCsvField).join(','));
+        });
+      });
+
+      downloadCsvFile(`607班_每日各科作業明細總表_${todayIso}.csv`, rows.join('\r\n'));
+      showToast('📋 已匯出「每日各科明細總表 (Excel CSV)」！');
+    };
+
     // ================= Padlet 即時同步引擎 =================
     const parseJinaPadletMarkdown = (md) => {
       if (!md || !md.includes('### [')) return [];
@@ -2528,6 +3231,27 @@ createApp({
     };
 
     const copyReport = () => {
+      if (activeTab.value === 'analytics') {
+        let text = `📢【607 學期作業累計缺交清算提醒】(${analyticsRangeLabel.value})\n`;
+        text += `------------------------------------------\n`;
+        const missingStus = studentAnalyticsList.value.filter(s => s.missingCount > 0);
+        if (missingStus.length === 0) {
+          text += `🎉 太棒了！期間內全班所有作業全數繳齊，表現優良！\n`;
+        } else {
+          text += `⚠️ 尚未繳清同學名單（共 ${missingStus.length} 人，累計 ${analyticsOverview.value.totalMissing} 項未交）：\n\n`;
+          missingStus.forEach(stu => {
+            const debts = stu.missingItems.map(d => `${d.shortDate}(${d.weekdayName}) [${d.hwTitle}]`).join('、');
+            text += `• ${stu.seat} 號：${debts} (欠 ${stu.missingCount} 項 / 繳交率 ${stu.submitRate}%)\n`;
+          });
+          text += `------------------------------------------\n`;
+          text += `請尚未繳清的同學盡速完成補交！`;
+        }
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('已複製學期統計未交總清單！');
+        }).catch(() => alert(text));
+        return;
+      }
+
       if (activeTab.value === 'summary') {
         let text = `📢【607 本週作業未繳清算提醒】(${weekLabel.value})\n`;
         text += `------------------------------------------\n`;
@@ -2760,6 +3484,22 @@ createApp({
       cleanStudentsCount,
       hasAnyTasksThisWeek,
       clearSpecificDebt,
+      analyticsRange,
+      analyticsSortBy,
+      analyticsRangeLabel,
+      analyticsFilteredDays,
+      studentAnalyticsList,
+      sortedStudentAnalytics,
+      analyticsOverview,
+      analyticsDailyHistory,
+      showStudentHistoryModal,
+      selectedStudentSeat,
+      selectedStudentProfile,
+      openStudentHistoryModal,
+      jumpToHistoricalDate,
+      copySingleStudentParentNotice,
+      exportStudentSummaryCsv,
+      exportDailyDetailCsv,
       fetchHomeworkJson,
       previewPadletPostForDate,
       parsePastedText,
