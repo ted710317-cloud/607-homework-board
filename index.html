@@ -371,10 +371,10 @@
              class="grid gap-3">
           
           <div v-for="(hw, idx) in currentHomeworkList" :key="hw.id"
-               :class="hw.isFixed ? 'bg-slate-800/90 border-amber-500/40 shadow-amber-950/20' : 'bg-slate-800/85 border-slate-700/90'"
+               :class="isHomeworkLocked(hw.id) ? 'bg-slate-800/95 border-rose-500/60 ring-1 ring-rose-500/30 shadow-rose-950/30' : (hw.isFixed ? 'bg-slate-800/90 border-amber-500/40 shadow-amber-950/20' : 'bg-slate-800/85 border-slate-700/90')"
                class="rounded-2xl p-3 border shadow-xl flex flex-col justify-between transition-all hover:border-indigo-500/50">
             
-            <!-- 卡片頂部：作業標題 + 狀態徽章 + 單科快捷按鈕 -->
+            <!-- 卡片頂部：作業標題 + 狀態徽章 + 逐項鎖定按鈕 -->
             <div>
               <div class="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-700/80">
                 <div class="flex items-center gap-1.5 min-w-0">
@@ -390,16 +390,24 @@
                   </span>
                 </div>
 
-                <!-- 單科狀態徽章 -->
-                <div class="flex items-center gap-1 flex-shrink-0">
+                <!-- 單科狀態徽章 + 逐項鎖定按鍵 -->
+                <div class="flex items-center gap-1.5 flex-shrink-0">
                   <span v-if="getMissingCount(hw.id) === 0"
-                        class="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-xs">
+                        class="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[11px]">
                     全齊 🎉
                   </span>
                   <span v-else
-                        class="px-2.5 py-0.5 rounded-lg bg-rose-500 text-white font-black text-xs shadow-sm">
+                        class="px-2 py-0.5 rounded-lg bg-rose-500 text-white font-black text-[11px] shadow-sm">
                     缺 {{ getMissingCount(hw.id) }} 人
                   </span>
+
+                  <button @click="handleHwLockToggleClick(hw)"
+                          :class="isHomeworkLocked(hw.id) ? 'bg-rose-500/25 text-rose-200 border-rose-500/50 hover:bg-rose-500/40' : 'bg-slate-700/80 text-slate-300 border-slate-600 hover:bg-indigo-600/50 hover:text-white hover:border-indigo-400'"
+                          class="px-2 py-0.5 rounded-lg border text-[11px] font-bold flex items-center gap-1 transition cursor-pointer active:scale-95 whitespace-nowrap"
+                          :title="isHomeworkLocked(hw.id) ? '本科已由導師檢核鎖定，點擊輸入認證碼解鎖' : '點擊鎖定本科，檢核完成後防止同學誤觸修改或刪除'">
+                    <span>{{ isHomeworkLocked(hw.id) ? '🔒' : '🔓' }}</span>
+                    <span>{{ isHomeworkLocked(hw.id) ? '已鎖定' : '鎖定' }}</span>
+                  </button>
                 </div>
               </div>
 
@@ -408,7 +416,7 @@
                 <button v-for="seat in 26" :key="seat"
                         @click="toggleStudentStatus(hw.id, seat)"
                         :disabled="isAbsent(seat)"
-                        :class="[getSeatButtonClass(hw.id, seat), isCurrentDayLocked ? 'cursor-not-allowed opacity-90' : 'cursor-pointer']"
+                        :class="[getSeatButtonClass(hw.id, seat), isHomeworkLocked(hw.id) ? 'cursor-not-allowed opacity-90' : 'cursor-pointer']"
                         class="grid-cell h-10 sm:h-11 rounded-xl flex flex-col items-center justify-center p-0.5 relative shadow-sm select-none border">
                   
                   <!-- 座號數字 -->
@@ -497,12 +505,17 @@
                   <span v-if="hw.isFixed" class="text-xs px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black">第1項</span>
                   <h3 class="text-2xl font-black text-white truncate" :title="hw.title">{{ hw.title }}</h3>
                 </div>
-                <span v-if="getMissingCount(hw.id) === 0" class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black">
-                  100% 全交
-                </span>
-                <span v-else class="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-black">
-                  缺 {{ getMissingCount(hw.id) }} 人
-                </span>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <span v-if="isHomeworkLocked(hw.id)" class="px-2.5 py-1 rounded-full bg-rose-500/25 text-rose-200 border border-rose-500/50 text-xs font-black">
+                    🔒 已鎖定
+                  </span>
+                  <span v-if="getMissingCount(hw.id) === 0" class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black">
+                    100% 全交
+                  </span>
+                  <span v-else class="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-black">
+                    缺 {{ getMissingCount(hw.id) }} 人
+                  </span>
+                </div>
               </div>
 
               <!-- 缺交名單大字顯示 -->
@@ -1121,8 +1134,12 @@
               固定第1項
             </span>
             <span class="font-bold text-slate-200 text-sm">{{ hw.title }}</span>
+            <span v-if="isHomeworkLocked(hw.id)" class="text-[11px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold">
+              🔒 已鎖定
+            </span>
           </div>
-          <button v-if="!hw.isFixed" @click="removeHomework(hw.id)" class="text-slate-500 hover:text-rose-400 text-xs font-bold px-2 py-1">
+          <span v-if="isHomeworkLocked(hw.id)" class="text-xs text-rose-300/90 px-2 font-bold">🔒 鎖定保護中</span>
+          <button v-else-if="!hw.isFixed" @click="removeHomework(hw.id)" class="text-slate-500 hover:text-rose-400 text-xs font-bold px-2 py-1">
             刪除
           </button>
           <span v-else class="text-xs text-amber-400/80 px-2 font-medium">每日必收</span>
@@ -1476,13 +1493,24 @@
       <div class="bg-rose-950/40 border border-rose-500/30 rounded-2xl p-4 flex items-start gap-3">
         <span class="text-2xl mt-0.5">🛡️</span>
         <div>
-          <div class="text-sm font-black text-rose-200 mb-1">
-            確定要鎖定【{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }}】的作業看板嗎？
-          </div>
-          <div class="text-xs text-slate-300 leading-relaxed">
-            鎖定後，全班座號點選、作業編輯與請假設定將立即轉為<strong>唯讀保護模式</strong>，防止學生或組長誤觸變更。<br>
-            <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需由導師輸入專屬認證碼。</span>
-          </div>
+          <template v-if="lockActionTarget.type === 'hw'">
+            <div class="text-sm font-black text-rose-200 mb-1">
+              確定要鎖定單項作業【{{ lockActionTarget.hwTitle }}】嗎？
+            </div>
+            <div class="text-xs text-slate-300 leading-relaxed">
+              鎖定後，這項作業的座號點選與作業本身將立即轉為<strong>唯讀保護模式</strong>（無法被同學誤觸修改或刪除），同日其他未鎖定的作業仍可正常點選。<br>
+              <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需由導師輸入專屬認證碼。</span>
+            </div>
+          </template>
+          <template v-else>
+            <div class="text-sm font-black text-rose-200 mb-1">
+              確定要鎖定【{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }}】整日作業看板嗎？
+            </div>
+            <div class="text-xs text-slate-300 leading-relaxed">
+              鎖定後，全班座號點選、作業編輯與請假設定將立即轉為<strong>唯讀保護模式</strong>，防止學生或組長誤觸變更。<br>
+              <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需由導師輸入專屬認證碼。</span>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -1510,8 +1538,14 @@
       </div>
 
       <div class="text-xs text-slate-300 leading-relaxed">
-        【{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }}】作業看板目前處於鎖定保護狀態。<br>
-        請輸入教師專屬認證碼以解除鎖定：
+        <template v-if="lockActionTarget.type === 'hw'">
+          作業項目【<strong class="text-rose-300">{{ lockActionTarget.hwTitle }}</strong>】目前處於導師鎖定保護狀態。<br>
+          請輸入教師專屬認證碼以解除此作業鎖定：
+        </template>
+        <template v-else>
+          【{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }}】作業看板目前處於鎖定保護狀態。<br>
+          請輸入教師專屬認證碼以解除鎖定：
+        </template>
       </div>
 
       <div class="relative">
@@ -1642,12 +1676,13 @@ createApp({
     const newHwTitle = ref('');
     const pasteContent = ref('');
 
-    // 🔒 教師鎖定看板系統 (Teacher Lock Board System)
+    // 🔒 教師鎖定看板系統 (Teacher Lock Board System - 支援整日鎖定 + 單項作業逐項鎖定)
     const TEACHER_AUTH_CODE = '607607';
     const authCodeInput = ref('');
     const authErrorMsg = ref('');
     const authShowPassword = ref(false);
     const authInputRef = ref(null);
+    const lockActionTarget = ref({ type: 'day', iso: '', hwId: '', hwTitle: '' });
 
     const isCurrentDayLocked = computed(() => {
       if (!currentDayObject.value) return false;
@@ -1660,26 +1695,79 @@ createApp({
       return !!(day && day.isLocked);
     };
 
+    const isHomeworkDirectlyLocked = (hwId, iso = null) => {
+      const targetIso = iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
+      const day = allDaysData.value[targetIso];
+      return !!(day && day.lockedHwMap && day.lockedHwMap[hwId]);
+    };
+
+    const isHomeworkLocked = (hwId, iso = null) => {
+      const targetIso = iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
+      return isDayLocked(targetIso) || isHomeworkDirectlyLocked(hwId, targetIso);
+    };
+
+    const hasAnyLockedHomeworkOnDay = (iso) => {
+      const day = allDaysData.value[iso];
+      return !!(day && day.lockedHwMap && Object.values(day.lockedHwMap).some(Boolean));
+    };
+
+    const syncSingleHwLockToCloud = (iso, hwId, isLocked) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`lingyi_607/weekly_data/allDaysData/${iso}/lockedHwMap/${hwId}`)
+          .set(isLocked ? true : null)
+          .catch(e => console.warn('雲端更新單項作業鎖定狀態失敗', e));
+      }
+    };
+
     const handleLockToggleClick = () => {
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
       if (isCurrentDayLocked.value) {
-        openUnlockModal();
+        openUnlockModal('day', targetIso);
       } else {
+        lockActionTarget.value = { type: 'day', iso: targetIso, hwId: '', hwTitle: '' };
+        showLockConfirmModal.value = true;
+      }
+    };
+
+    const handleHwLockToggleClick = (hw) => {
+      if (!hw) return;
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+      if (isCurrentDayLocked.value) {
+        openUnlockModal('day', targetIso);
+      } else if (isHomeworkDirectlyLocked(hw.id, targetIso)) {
+        openUnlockModal('hw', targetIso, hw.id, hw.title);
+      } else {
+        lockActionTarget.value = { type: 'hw', iso: targetIso, hwId: hw.id, hwTitle: hw.title };
         showLockConfirmModal.value = true;
       }
     };
 
     const confirmLockBoard = () => {
-      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+      const target = lockActionTarget.value;
+      const targetIso = target.iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
       const day = ensureDayData(targetIso);
-      day.isLocked = true;
-      syncDayLockToCloud(targetIso, true);
-      saveAllToStorage();
-      showLockConfirmModal.value = false;
-      playClickSound('missing');
-      showToast('🔒 本日作業看板已鎖定！需由導師輸入認證碼才能修改');
+
+      if (target.type === 'hw' && target.hwId) {
+        day.lockedHwMap = day.lockedHwMap || {};
+        day.lockedHwMap[target.hwId] = true;
+        syncSingleHwLockToCloud(targetIso, target.hwId, true);
+        saveAllToStorage();
+        showLockConfirmModal.value = false;
+        playClickSound('missing');
+        showToast(`🔒 作業【${target.hwTitle}】已鎖定！需由導師輸入認證碼才能修改或刪除`);
+      } else {
+        day.isLocked = true;
+        syncDayLockToCloud(targetIso, true);
+        saveAllToStorage();
+        showLockConfirmModal.value = false;
+        playClickSound('missing');
+        showToast('🔒 本日作業看板已鎖定！需由導師輸入認證碼才能修改');
+      }
     };
 
-    const openUnlockModal = () => {
+    const openUnlockModal = (type = 'day', iso = '', hwId = '', hwTitle = '') => {
+      const targetIso = iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
+      lockActionTarget.value = { type, iso: targetIso, hwId, hwTitle };
       authCodeInput.value = '';
       authErrorMsg.value = '';
       authShowPassword.value = false;
@@ -1697,16 +1785,31 @@ createApp({
       const code = (domVal || authCodeInput.value || '').trim();
       authCodeInput.value = code;
       if (code === TEACHER_AUTH_CODE) {
-        const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+        const target = lockActionTarget.value;
+        const targetIso = target.iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
         const day = ensureDayData(targetIso);
-        day.isLocked = false;
-        syncDayLockToCloud(targetIso, false);
-        saveAllToStorage();
-        showUnlockAuthModal.value = false;
-        authCodeInput.value = '';
-        authErrorMsg.value = '';
-        playClickSound('complete');
-        showToast('🔓 認證成功！看板已解除鎖定，可進行點選與編輯');
+
+        if (target.type === 'hw' && target.hwId) {
+          if (day.lockedHwMap) {
+            delete day.lockedHwMap[target.hwId];
+          }
+          syncSingleHwLockToCloud(targetIso, target.hwId, false);
+          saveAllToStorage();
+          showUnlockAuthModal.value = false;
+          authCodeInput.value = '';
+          authErrorMsg.value = '';
+          playClickSound('complete');
+          showToast(`🔓 認證成功！作業【${target.hwTitle}】已解除鎖定，可進行點選與編輯`);
+        } else {
+          day.isLocked = false;
+          syncDayLockToCloud(targetIso, false);
+          saveAllToStorage();
+          showUnlockAuthModal.value = false;
+          authCodeInput.value = '';
+          authErrorMsg.value = '';
+          playClickSound('complete');
+          showToast('🔓 認證成功！看板已解除鎖定，可進行點選與編輯');
+        }
       } else {
         authErrorMsg.value = '❌ 認證碼錯誤，請重新輸入！';
         playClickSound('missing');
@@ -2077,7 +2180,8 @@ createApp({
                   padletSyncedSig: day.padletSyncedSig || (localDay ? localDay.padletSyncedSig || '' : ''),
                   padletSourceTitle: day.padletSourceTitle || (localDay ? localDay.padletSourceTitle || '' : ''),
                   manuallyEdited: day.manuallyEdited !== undefined ? !!day.manuallyEdited : !!(localDay && localDay.manuallyEdited),
-                  isLocked: day.isLocked !== undefined ? !!day.isLocked : !!(localDay && localDay.isLocked)
+                  isLocked: day.isLocked !== undefined ? !!day.isLocked : !!(localDay && localDay.isLocked),
+                  lockedHwMap: (day.lockedHwMap && typeof day.lockedHwMap === 'object') ? day.lockedHwMap : {}
                 };
               }
             }
@@ -2186,7 +2290,8 @@ createApp({
           padletSyncedSig: '',
           padletSourceTitle: '',
           manuallyEdited: false,
-          isLocked: false
+          isLocked: false,
+          lockedHwMap: {}
         };
       }
       const day = allDaysData.value[iso];
@@ -2204,6 +2309,9 @@ createApp({
       }
       if (day.isLocked === undefined) {
         day.isLocked = false;
+      }
+      if (!day.lockedHwMap || typeof day.lockedHwMap !== 'object') {
+        day.lockedHwMap = {};
       }
       return day;
     };
@@ -2359,16 +2467,23 @@ createApp({
 
     // 切換座號已交 / 缺交 (細粒度即時同步雲端，絕不全包覆蓋)
     const toggleStudentStatus = (hwId, seat) => {
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
       if (isCurrentDayLocked.value) {
         showToast('🔒 本日看板已由導師鎖定，點選座號請先解鎖！');
-        openUnlockModal();
+        openUnlockModal('day', targetIso);
+        return;
+      }
+      if (isHomeworkDirectlyLocked(hwId, targetIso)) {
+        const hwObj = currentHomeworkList.value.find(h => h.id === hwId);
+        const hwTitle = hwObj ? hwObj.title : '該項作業';
+        showToast(`🔒 【${hwTitle}】已由導師檢核鎖定，修改請先解鎖！`);
+        openUnlockModal('hw', targetIso, hwId, hwTitle);
         return;
       }
       if (isAbsent(seat) || !currentActiveDayData.value || !currentDayObject.value) return;
       const key = `${hwId}_${seat}`;
       const rec = currentActiveDayData.value.records;
       const current = rec[key] === 'missing' ? 'missing' : 'submitted';
-      const targetIso = currentDayObject.value.iso;
 
       if (current === 'submitted') {
         rec[key] = 'missing';
@@ -2513,13 +2628,20 @@ createApp({
     };
 
     const removeHomework = (id) => {
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
       if (isCurrentDayLocked.value) {
         showToast('🔒 本日看板已由導師鎖定，刪除作業請先解鎖！');
-        openUnlockModal();
+        openUnlockModal('day', targetIso);
         return;
       }
       if (!currentActiveDayData.value) return;
       const target = currentActiveDayData.value.homeworkList.find(h => h.id === id);
+      if (isHomeworkDirectlyLocked(id, targetIso)) {
+        const hwTitle = target ? target.title : '該項作業';
+        showToast(`🔒 【${hwTitle}】已由導師檢核鎖定，無法刪除！請先解鎖`);
+        openUnlockModal('hw', targetIso, id, hwTitle);
+        return;
+      }
       if (target && target.isFixed) {
         alert('「聯絡簿」為每日固定第一項作業，無法刪除');
         return;
@@ -2535,7 +2657,6 @@ createApp({
       }
       saveAllToStorage();
       // ✅ 細粒度同步：只更新本日作業列表
-      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
       syncDayHomeworkListToCloud(targetIso, currentActiveDayData.value.homeworkList);
       syncDayMetaToCloud(targetIso, true, currentActiveDayData.value.padletSyncedSig || '');
       showToast('已刪除作業');
@@ -2615,6 +2736,10 @@ createApp({
     const clearSpecificDebt = (dayIso, hwId, seat) => {
       if (isDayLocked(dayIso)) {
         showToast('🔒 該日看板已被導師鎖定！請先切換至該日解鎖後再補交');
+        return;
+      }
+      if (isHomeworkDirectlyLocked(hwId, dayIso)) {
+        showToast('🔒 該項作業已被導師檢核鎖定！請先切換至該日解鎖後再補交');
         return;
       }
       const day = ensureDayData(dayIso);
@@ -3038,6 +3163,15 @@ createApp({
         });
       });
 
+      // ✅ 單項作業鎖定保護：保留已被導師鎖定的舊作業項目，避免被 Padlet 重同步或貼上覆蓋刪除
+      if (day.lockedHwMap && typeof day.lockedHwMap === 'object') {
+        (day.homeworkList || []).forEach(hw => {
+          if (hw && !hw.isFixed && day.lockedHwMap[hw.id] && !finalItems.some(f => f.id === hw.id)) {
+            finalItems.push(hw);
+          }
+        });
+      }
+
       // ✅ Bug2 修復：作業 ID 遷移 — 當 Padlet 標題微調造成 ID 改變時，將舊 ID records 搬移至新 ID
       if (day.records && typeof day.records === 'object') {
         const oldHomeworkList = day.homeworkList || [];
@@ -3159,9 +3293,9 @@ createApp({
 
         const isEmptyDay = (day.homeworkList || []).length <= 1;
         const isUnmodifiedPadletDay = !day.manuallyEdited && !!day.padletSyncedSig && day.padletSyncedSig !== sig;
-        // ✅ Bug3 修復：有 missing records 或已由導師鎖定的日期，不可被 Padlet 同步覆蓋作業列表
+        // ✅ Bug3 修復：有 missing records、整日已鎖定或已有單項作業被導師鎖定的日期，不可被 Padlet 同步覆蓋作業列表
         const hasRecords = day.records && Object.keys(day.records).some(k => day.records[k] === 'missing');
-        const locked = !!day.isLocked;
+        const locked = !!day.isLocked || hasAnyLockedHomeworkOnDay(d.iso);
 
         if ((isEmptyDay || isUnmodifiedPadletDay) && !hasRecords && !locked) {
           applyTasksToDay(d.iso, hwTitles, true, post.title);
@@ -3560,7 +3694,11 @@ createApp({
       authInputRef,
       isCurrentDayLocked,
       isDayLocked,
+      lockActionTarget,
+      isHomeworkDirectlyLocked,
+      isHomeworkLocked,
       handleLockToggleClick,
+      handleHwLockToggleClick,
       confirmLockBoard,
       openUnlockModal,
       submitUnlockAuth,
