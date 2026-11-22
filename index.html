@@ -325,146 +325,141 @@
         </button>
       </div>
 
-      <!-- ================= 視圖 A-1: 組長點選登記模式 (Check View) ================= -->
-      <div v-if="currentView === 'check'" class="flex-1 flex flex-col gap-3">
+      <!-- ================= 視圖 A-1: 組長點選登記模式 (A2 方案：多卡片並排網格，單日所有作業同畫面展開) ================= -->
+      <div v-if="currentView === 'check'" class="flex-1 flex flex-col gap-2.5">
 
-        <!-- 1. 當前日期的作業選擇大標籤頁 (第一項固定為「聯絡簿」) -->
-        <div>
-          <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-            <span class="flex items-center gap-1.5">
-              <span>👇</span>
-              <strong class="text-indigo-300">請組長點選負責的作業（目前為 {{ currentDayObject ? currentDayObject.name : '' }}）</strong>
-              <span class="text-amber-400 font-bold ml-1">（第 1 項固定為「聯絡簿」）</span>
+        <!-- 頂部簡潔操作說明列 -->
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 shadow-md">
+          <div class="flex items-center flex-wrap gap-2 text-xs">
+            <span class="px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-black flex items-center gap-1">
+              <span>📋</span>
+              <span>{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '本日' }} 作業全覽（共 {{ currentHomeworkList.length }} 項）</span>
             </span>
-            <span class="text-slate-400 font-medium">當日共 {{ currentHomeworkList.length }} 項作業</span>
+            <span class="text-slate-300">
+              👉 <strong class="text-amber-300">免切換科目！</strong>所有作業已同畫面展開：預設<span class="text-emerald-400 font-bold">綠燈已交</span>，點擊座號變<span class="text-rose-400 font-bold">紅燈未交 ❌</span>，再點一次恢復已交。
+            </span>
           </div>
+
+          <div class="flex items-center gap-2 text-xs">
+            <span v-if="getDayMissingCount(currentDayObject ? currentDayObject.iso : todayIso) === 0"
+                  class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black">
+              🎉 本日全班所有作業均已繳齊！
+            </span>
+            <span v-else
+                  class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 font-black">
+              ⚠️ 本日各科累計尚有 {{ getDayMissingCount(currentDayObject ? currentDayObject.iso : todayIso) }} 人次未交
+            </span>
+          </div>
+        </div>
+
+        <!-- 2. 多卡片並排網格：同一天所有作業直接同畫面展開 -->
+        <div :class="currentHomeworkList.length >= 5 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' : (currentHomeworkList.length === 1 ? 'grid-cols-1 max-w-3xl mx-auto w-full' : 'grid-cols-1 lg:grid-cols-2')"
+             class="grid gap-3">
           
-          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
-            <button v-for="(hw, idx) in currentHomeworkList" :key="hw.id"
-                    @click="activeHwId = hw.id; playClickSound()"
-                    :class="activeHwId === hw.id ? 'ring-2 ring-cyan-400 bg-indigo-950/80 border-cyan-400 text-white shadow-xl shadow-cyan-950/40' : (hw.isFixed ? 'bg-amber-950/30 border-amber-600/40 text-amber-200 hover:bg-amber-950/50' : 'bg-slate-800/80 border-slate-700/80 text-slate-300 hover:bg-slate-750')"
-                    class="p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all relative overflow-hidden group">
-              
-              <div class="flex items-start justify-between gap-1 mb-1">
-                <div class="flex items-center gap-1.5 truncate">
-                  <span v-if="hw.isFixed" class="text-[11px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black">第1項</span>
-                  <span class="font-black text-sm sm:text-base truncate" :title="hw.title">{{ hw.title }}</span>
+          <div v-for="(hw, idx) in currentHomeworkList" :key="hw.id"
+               :class="hw.isFixed ? 'bg-slate-800/90 border-amber-500/40 shadow-amber-950/20' : 'bg-slate-800/85 border-slate-700/90'"
+               class="rounded-2xl p-3 border shadow-xl flex flex-col justify-between transition-all hover:border-indigo-500/50">
+            
+            <!-- 卡片頂部：作業標題 + 狀態徽章 + 單科快捷按鈕 -->
+            <div>
+              <div class="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-700/80">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span :class="hw.isFixed ? 'bg-amber-500 text-slate-950' : 'bg-indigo-600 text-white'"
+                        class="w-5 h-5 rounded-md text-xs font-black flex items-center justify-center flex-shrink-0 shadow-sm">
+                    {{ idx + 1 }}
+                  </span>
+                  <h2 class="text-base sm:text-lg font-black text-white truncate" :title="hw.title">
+                    {{ hw.title }}
+                  </h2>
+                  <span v-if="hw.isFixed" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold flex-shrink-0">
+                    固定
+                  </span>
                 </div>
-                <span v-if="getMissingCount(hw.id) === 0" class="text-[11px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-black border border-emerald-500/30 whitespace-nowrap">
-                  全齊 🎉
-                </span>
-                <span v-else class="text-[11px] px-1.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 font-black border border-rose-500/30 whitespace-nowrap">
-                  缺 {{ getMissingCount(hw.id) }} 人
+
+                <!-- 單科狀態與快捷按鈕 -->
+                <div class="flex items-center gap-1 flex-shrink-0">
+                  <span v-if="getMissingCount(hw.id) === 0"
+                        class="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[11px]">
+                    全齊 🎉
+                  </span>
+                  <span v-else
+                        class="px-2 py-0.5 rounded-lg bg-rose-500 text-white font-black text-[11px] shadow-sm">
+                    缺 {{ getMissingCount(hw.id) }} 人
+                  </span>
+
+                  <button @click="markAllSubmitted(hw.id)"
+                          title="將本科設為全部已交"
+                          class="px-1.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-700 hover:bg-emerald-700/60 text-emerald-300 border border-slate-600 transition">
+                    ✅全交
+                  </button>
+                  <button @click="markAllMissing(hw.id)"
+                          title="將本科全部重設為未繳交"
+                          class="px-1.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-700 hover:bg-rose-700/60 text-rose-300 border border-slate-600 transition">
+                    ❌重選
+                  </button>
+                </div>
+              </div>
+
+              <!-- 該科 1 ~ 26 號座號點選矩陣 (9欄緊湊排列，3排完整呈現26人) -->
+              <div class="grid grid-cols-7 sm:grid-cols-9 gap-1.5">
+                <button v-for="seat in 26" :key="seat"
+                        @click="toggleStudentStatus(hw.id, seat)"
+                        :disabled="isAbsent(seat)"
+                        :class="[getSeatButtonClass(hw.id, seat), isCurrentDayLocked ? 'cursor-not-allowed opacity-90' : 'cursor-pointer']"
+                        class="grid-cell h-10 sm:h-11 rounded-xl flex flex-col items-center justify-center p-0.5 relative shadow-sm select-none border">
+                  
+                  <!-- 座號數字 -->
+                  <span class="text-sm sm:text-base font-black tracking-tight leading-none">
+                    {{ seat }}
+                  </span>
+
+                  <!-- 狀態迷你標籤 -->
+                  <span class="text-[9px] font-bold leading-none mt-0.5">
+                    <template v-if="isAbsent(seat)">
+                      <span class="text-amber-300">請假</span>
+                    </template>
+                    <template v-else-if="getStatus(hw.id, seat) === 'missing'">
+                      <span class="text-white font-black">❌未交</span>
+                    </template>
+                    <template v-else>
+                      <span class="text-emerald-100/90">✔已交</span>
+                    </template>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 卡片底部：該科未繳交座號快速檢視 + 繳交率進度條 -->
+            <div class="mt-2.5 pt-2 border-t border-slate-700/70 flex flex-col gap-1.5">
+              <div class="flex items-center justify-between gap-2 min-h-[24px]">
+                <div class="flex items-center flex-wrap gap-1 flex-1">
+                  <span class="text-[11px] font-bold text-slate-400">未交：</span>
+                  <span v-if="getMissingList(hw.id).length === 0" class="text-emerald-400 font-bold text-xs">
+                    🎉 全數到齊 ({{ getSubmittedCount(hw.id) }}/{{ 26 - currentAbsentList.length }}人)
+                  </span>
+                  <template v-else>
+                    <span v-for="seat in getMissingList(hw.id)" :key="seat"
+                          @click="toggleStudentStatus(hw.id, seat)"
+                          class="px-1.5 py-0.2 rounded bg-rose-500/25 text-rose-200 border border-rose-500/50 text-xs font-black cursor-pointer hover:bg-rose-500/40 transition"
+                          title="點擊可直接改為已交">
+                      {{ seat }}號
+                    </span>
+                  </template>
+                </div>
+                <span class="text-[11px] text-slate-400 font-bold flex-shrink-0">
+                  {{ getSubmittedCount(hw.id) }}/{{ 26 - currentAbsentList.length }} ({{ getSubmitPercentage(hw.id) }}%)
                 </span>
               </div>
 
-              <!-- 繳交率進度條 -->
-              <div class="w-full bg-slate-700/60 rounded-full h-1.5 overflow-hidden mb-1">
+              <!-- 迷你進度條 -->
+              <div class="w-full bg-slate-700/60 rounded-full h-1.5 overflow-hidden">
                 <div class="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-300"
                      :style="{ width: getSubmitPercentage(hw.id) + '%' }"></div>
               </div>
-
-              <div class="flex justify-between items-center text-[11px] text-slate-400 font-medium">
-                <span>已交：<strong class="text-emerald-400 font-bold">{{ getSubmittedCount(hw.id) }}</strong> / 26</span>
-                <span class="font-bold text-slate-300">{{ getSubmitPercentage(hw.id) }}%</span>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <!-- 2. 當前作業資訊與操作提示卡 -->
-        <div v-if="currentHw" class="bg-slate-800/90 rounded-2xl px-4 py-3 border border-slate-700 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-          <div>
-            <div class="flex items-center flex-wrap gap-2.5">
-              <h2 class="text-lg sm:text-2xl font-black text-white flex items-center gap-2">
-                <span v-if="currentHw.isFixed">📕</span>
-                <span v-else>📖</span>
-                <span>{{ currentHw.title }}</span>
-                <span v-if="currentHw.isFixed" class="text-[11px] px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">
-                  每日第一項固定清點
-                </span>
-              </h2>
-              <span v-if="getMissingCount(currentHw.id) === 0" class="px-2.5 py-0.5 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs shadow-md">
-                全班已交齊！
-              </span>
-              <span v-else class="px-2.5 py-0.5 rounded-lg bg-rose-500 text-white font-black text-xs shadow-md">
-                尚缺 {{ getMissingCount(currentHw.id) }} 人
-              </span>
             </div>
-            <p class="text-xs text-slate-300 mt-1">
-              👉 <span class="text-amber-300 font-bold">操作方式：</span>預設為已交（綠燈）。請點擊「<strong class="text-rose-400 underline decoration-2">未繳交</strong>」同學座號（變紅燈 ❌）。若之後補交，再點一次變回綠燈。
-              <span v-if="isCloudSyncActive" class="text-emerald-300 font-bold ml-1">（點選後所有電腦與手機即時同步 ✨）</span>
-            </p>
+
           </div>
 
-          <!-- 快速功能按鈕 -->
-          <div class="flex items-center gap-2 self-start md:self-auto flex-shrink-0">
-            <button @click="markAllSubmitted(currentHw.id)"
-                    class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-emerald-300 border border-slate-600 transition">
-              ✅ 本科全部已交
-            </button>
-            <button @click="markAllMissing(currentHw.id)"
-                    class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-rose-300 border border-slate-600 transition">
-              ❌ 本科全部重選
-            </button>
-            <button @click="handleLockToggleClick"
-                    :class="isCurrentDayLocked ? 'bg-rose-600/30 text-rose-200 border-rose-500/50 hover:bg-rose-600/40 ring-1 ring-rose-500/40' : 'bg-slate-750 hover:bg-slate-700 text-slate-300 border-slate-600'"
-                    class="px-3 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 shadow-sm active:scale-95 cursor-pointer">
-              <span>{{ isCurrentDayLocked ? '🔒 看板已鎖定' : '🔓 鎖定看板' }}</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- 3. 座號矩陣 1 ~ 26 號（精巧好點選設計，完整呈現在單一畫面） -->
-        <div v-if="currentHw" class="bg-slate-800/60 rounded-2xl p-3 sm:p-3.5 border border-slate-700/80 shadow-2xl">
-          <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-7 lg:grid-cols-9 gap-1.5 sm:gap-2">
-            <button v-for="seat in 26" :key="seat"
-                    @click="toggleStudentStatus(currentHw.id, seat)"
-                    :disabled="isAbsent(seat)"
-                    :class="[getSeatButtonClass(currentHw.id, seat), isCurrentDayLocked ? 'cursor-not-allowed opacity-90' : 'cursor-pointer']"
-                    class="grid-cell h-[52px] sm:h-14 rounded-xl flex flex-col items-center justify-center p-1 relative shadow-sm select-none border">
-              
-              <!-- 座號數字 -->
-              <span class="text-lg sm:text-xl font-black tracking-tight leading-none mb-0.5">
-                {{ seat }}
-              </span>
-
-              <!-- 狀態文字標籤 -->
-              <span class="text-[11px] font-bold flex items-center gap-1 leading-none">
-                <template v-if="isAbsent(seat)">
-                  <span class="text-amber-300">⚪ 請假</span>
-                </template>
-                <template v-else-if="getStatus(currentHw.id, seat) === 'missing'">
-                  <span class="text-white font-black bg-rose-900/60 px-1.5 py-0.5 rounded border border-rose-400">❌ 未繳交</span>
-                </template>
-                <template v-else>
-                  <span class="text-emerald-100 font-bold opacity-90">✔ 已交</span>
-                </template>
-              </span>
-            </button>
-          </div>
-
-          <!-- 底部即時統計名單 -->
-          <div class="mt-3.5 pt-3 border-t border-slate-700/80 flex flex-wrap items-center justify-between gap-3">
-            <div class="flex items-center flex-wrap gap-2">
-              <span class="text-xs sm:text-sm font-bold text-slate-400">目前未繳交座號：</span>
-              <div v-if="getMissingList(currentHw.id).length === 0" class="text-emerald-400 font-bold text-sm flex items-center gap-1">
-                <span>🎉 太棒了，本科全班全數到齊！</span>
-              </div>
-              <div v-else class="flex flex-wrap gap-1.5">
-                <span v-for="seat in getMissingList(currentHw.id)" :key="seat"
-                      @click="toggleStudentStatus(currentHw.id, seat)"
-                      class="px-2.5 py-0.5 rounded-lg bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs sm:text-sm font-black cursor-pointer hover:bg-rose-500/40 transition"
-                      title="點擊此處可直接補交">
-                  {{ seat }} 號
-                </span>
-              </div>
-            </div>
-            <div class="text-xs text-slate-400">
-              <span v-if="isCloudSyncActive" class="text-emerald-400 font-bold">☁️ 雲端即時同步已啟動</span>
-              <span v-else>💾 本地自動儲存於瀏覽器</span>
-            </div>
-          </div>
         </div>
 
       </div>
