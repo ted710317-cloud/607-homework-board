@@ -1606,14 +1606,21 @@ createApp({
                   ? localDay.activeHwId
                   : (day.activeHwId || 'hw_contact_book');
 
+                // ✅ 防護增強：若雲端該日僅有單筆 record 尚未寫入 homeworkList，優先保留本地已有的 homeworkList
+                const preservedHwList = (Array.isArray(day.homeworkList) && day.homeworkList.length > 0)
+                  ? day.homeworkList
+                  : ((localDay && Array.isArray(localDay.homeworkList) && localDay.homeworkList.length > 0)
+                      ? localDay.homeworkList
+                      : [{ id: 'hw_contact_book', title: '聯絡簿', isFixed: true }]);
+
                 normalized[iso] = {
-                  homeworkList: Array.isArray(day.homeworkList) ? day.homeworkList : [{ id: 'hw_contact_book', title: '聯絡簿', isFixed: true }],
+                  homeworkList: preservedHwList,
                   records: (day.records && typeof day.records === 'object') ? day.records : {},
                   absentStudents: Array.isArray(day.absentStudents) ? day.absentStudents : [],
                   activeHwId: preservedActiveHwId,
-                  padletSyncedSig: day.padletSyncedSig || '',
-                  manuallyEdited: !!day.manuallyEdited,
-                  isLocked: !!day.isLocked
+                  padletSyncedSig: day.padletSyncedSig || (localDay ? localDay.padletSyncedSig || '' : ''),
+                  manuallyEdited: day.manuallyEdited !== undefined ? !!day.manuallyEdited : !!(localDay && localDay.manuallyEdited),
+                  isLocked: day.isLocked !== undefined ? !!day.isLocked : !!(localDay && localDay.isLocked)
                 };
               }
             }
@@ -1961,14 +1968,22 @@ createApp({
       }
       if (!currentActiveDayData.value || !currentDayObject.value) return;
       const targetIso = currentDayObject.value.iso;
+      const subjectUpdates = {};
       for (let seat = 1; seat <= 26; seat++) {
-        currentActiveDayData.value.records[`${hwId}_${seat}`] = 'submitted';
+        const key = `${hwId}_${seat}`;
+        currentActiveDayData.value.records[key] = 'submitted';
+        subjectUpdates[key] = 'submitted';
       }
       localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
         allDaysData: allDaysData.value,
         soundEnabled: soundEnabled.value
       }));
-      syncDayRecordsToCloud(targetIso, currentActiveDayData.value.records);
+      // ✅ 細粒度單科更新：只更新該科目的 26 個座號，絕不覆蓋同日其他科目的未交紀錄
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`lingyi_607/weekly_data/allDaysData/${targetIso}/records`)
+          .update(subjectUpdates)
+          .catch(e => console.warn('雲端更新單科全交失敗', e));
+      }
       triggerConfetti();
       playClickSound('complete');
       showToast('已將本科設為「全部已交」');
@@ -1983,16 +1998,24 @@ createApp({
       if (!currentActiveDayData.value || !currentDayObject.value) return;
       if (!confirm('確定要將此作業全部重設為「未繳交」嗎？')) return;
       const targetIso = currentDayObject.value.iso;
+      const subjectUpdates = {};
       for (let seat = 1; seat <= 26; seat++) {
         if (!isAbsent(seat)) {
-          currentActiveDayData.value.records[`${hwId}_${seat}`] = 'missing';
+          const key = `${hwId}_${seat}`;
+          currentActiveDayData.value.records[key] = 'missing';
+          subjectUpdates[key] = 'missing';
         }
       }
       localStorage.setItem('607_weekly_hw_data_v2', JSON.stringify({
         allDaysData: allDaysData.value,
         soundEnabled: soundEnabled.value
       }));
-      syncDayRecordsToCloud(targetIso, currentActiveDayData.value.records);
+      // ✅ 細粒度單科更新：只更新該科目的座號，絕不覆蓋同日其他科目的紀錄
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`lingyi_607/weekly_data/allDaysData/${targetIso}/records`)
+          .update(subjectUpdates)
+          .catch(e => console.warn('雲端更新單科重選失敗', e));
+      }
       showToast('已將本科重設');
     };
 
@@ -2305,10 +2328,11 @@ createApp({
 
         const isEmptyDay = (day.homeworkList || []).length <= 1;
         const isUnmodifiedPadletDay = !day.manuallyEdited && !!day.padletSyncedSig && day.padletSyncedSig !== sig;
-        // ✅ Bug3 修復：有 missing records 的日期不可被 Padlet 同步覆蓋作業列表
+        // ✅ Bug3 修復：有 missing records 或已由導師鎖定的日期，不可被 Padlet 同步覆蓋作業列表
         const hasRecords = day.records && Object.keys(day.records).some(k => day.records[k] === 'missing');
+        const locked = !!day.isLocked;
 
-        if ((isEmptyDay || isUnmodifiedPadletDay) && !hasRecords) {
+        if ((isEmptyDay || isUnmodifiedPadletDay) && !hasRecords && !locked) {
           applyTasksToDay(d.iso, hwTitles, true);
           changed = true;
           latestUpdatedLabel = post.title;
@@ -2447,6 +2471,12 @@ createApp({
       }
 
       const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+      if (isDayLocked(targetIso)) {
+        showToast('🔒 本日看板已由導師鎖定，貼上作業請先解鎖！');
+        showSyncOptionsModal.value = false;
+        openUnlockModal();
+        return;
+      }
       applyTasksToDay(targetIso, rawChunks, false);
       const day = ensureDayData(targetIso);
       day.manuallyEdited = true;
@@ -2470,6 +2500,12 @@ createApp({
       }
 
       const targetIso = detectedPadletPost.value.targetIso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
+      if (isDayLocked(targetIso)) {
+        showToast('🔒 該日看板已由導師鎖定，套用作業請先解鎖！');
+        showSyncConfirmModal.value = false;
+        openUnlockModal();
+        return;
+      }
       const titles = selected
         .map(t => t.title)
         .filter(t => t && t !== '聯絡簿');
