@@ -384,27 +384,16 @@
                   </span>
                 </div>
 
-                <!-- 單科狀態與快捷按鈕 -->
+                <!-- 單科狀態徽章 -->
                 <div class="flex items-center gap-1 flex-shrink-0">
                   <span v-if="getMissingCount(hw.id) === 0"
-                        class="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[11px]">
+                        class="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-xs">
                     全齊 🎉
                   </span>
                   <span v-else
-                        class="px-2 py-0.5 rounded-lg bg-rose-500 text-white font-black text-[11px] shadow-sm">
+                        class="px-2.5 py-0.5 rounded-lg bg-rose-500 text-white font-black text-xs shadow-sm">
                     缺 {{ getMissingCount(hw.id) }} 人
                   </span>
-
-                  <button @click="markAllSubmitted(hw.id)"
-                          title="將本科設為全部已交"
-                          class="px-1.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-700 hover:bg-emerald-700/60 text-emerald-300 border border-slate-600 transition">
-                    ✅全交
-                  </button>
-                  <button @click="markAllMissing(hw.id)"
-                          title="將本科全部重設為未繳交"
-                          class="px-1.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-700 hover:bg-rose-700/60 text-rose-300 border border-slate-600 transition">
-                    ❌重選
-                  </button>
                 </div>
               </div>
 
