@@ -341,7 +341,13 @@
           <div class="flex items-center flex-wrap gap-2 text-xs">
             <span class="px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-black flex items-center gap-1">
               <span>📋</span>
-              <span>{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '本日' }} 作業全覽（共 {{ currentHomeworkList.length }} 項）</span>
+              <span>{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '本日' }} 收件作業（共 {{ currentHomeworkList.length }} 項）</span>
+            </span>
+            <span v-if="currentDayPadletSource"
+                  class="px-2 py-0.5 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold flex items-center gap-1"
+                  title="前一個上課日於 Padlet 發布的作業已自動順延排入今日收件">
+              <span>📌</span>
+              <span>源自 Padlet【{{ currentDayPadletSource }}】聯絡簿</span>
             </span>
             <span class="text-slate-300">
               👉 <strong class="text-amber-300">免切換科目！</strong>所有作業已同畫面展開：預設<span class="text-emerald-400 font-bold">綠燈已交</span>，點擊座號變<span class="text-rose-400 font-bold">紅燈未交 ❌</span>，再點一次恢復已交。
@@ -470,6 +476,10 @@
             <h2 class="text-3xl sm:text-4xl font-black text-white tracking-wide mb-2">
               📢 607 {{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }} 作業繳交總覽
             </h2>
+            <div v-if="currentDayPadletSource" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/30 text-xs font-bold mb-2">
+              <span>📌</span>
+              <span>本日收件作業源自 Padlet【{{ currentDayPadletSource }}】聯絡簿</span>
+            </div>
             <p class="text-slate-300 text-base font-medium">
               請尚未完成作業的同學，於下課或午休前盡速補齊給各科組長！
             </p>
@@ -1151,17 +1161,18 @@
           </button>
         </div>
         <div class="text-xs text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span>最新貼文日期：<strong class="text-indigo-300">{{ padletLatestDate }}</strong></span>
+          <span>最新貼文標題：<strong class="text-indigo-300">{{ padletLatestDate }}</strong></span>
           <span>•</span>
           <span>來源：<strong class="text-emerald-300">{{ syncSourceLabel }}</strong></span>
+          <span class="text-cyan-300 font-bold">（✨ 已自動順延至下個上課日收件）</span>
         </div>
         <div v-if="detectedWeekBadges.length > 0" class="flex flex-wrap items-center gap-1.5 pt-1">
-          <span class="text-[11px] text-slate-400">本週已偵測：</span>
+          <span class="text-[11px] text-slate-400">本週收件對應：</span>
           <button v-for="b in detectedWeekBadges" :key="b.iso"
                   @click="previewPadletPostForDate(b.iso)"
                   class="text-[11px] px-2 py-0.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-200 border border-indigo-500/30 font-bold transition"
-                  title="點擊預覽並套用該日作業">
-            📅 {{ b.label }} ({{ b.taskCount }}項)
+                  title="點擊預覽、調整收件日或套用該日作業">
+            📅 {{ b.label }} ➔ {{ b.targetName }}({{ b.targetShortDate }}) ({{ b.taskCount }}項)
           </button>
         </div>
       </div>
@@ -1274,14 +1285,49 @@
         <button @click="showSyncConfirmModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
       </div>
 
-      <div class="bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-4 flex items-center justify-between gap-3">
-        <div>
-          <div class="text-xs text-indigo-300 font-bold mb-1">Padlet 聯絡簿貼文標題：</div>
-          <div class="text-lg font-black text-white">📅 {{ detectedPadletPost.title }}</div>
+      <div class="bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div class="text-xs text-indigo-300 font-bold mb-0.5">Padlet 原文貼文標題（出作業日）：</div>
+            <div class="text-lg font-black text-white flex items-center gap-2">
+              <span>📅 {{ detectedPadletPost.title }}</span>
+              <span v-if="detectedPadletPost.assignedIso" class="text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono">
+                {{ detectedPadletPost.assignedIso }} ({{ getWeekdayNameFromIso(detectedPadletPost.assignedIso) }})
+              </span>
+            </div>
+          </div>
+          <div class="text-right">
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold">
+              ✨ 已預設順延 1 個上課日
+            </span>
+          </div>
         </div>
-        <div v-if="detectedPadletPost.targetIso" class="text-right">
-          <div class="text-[11px] text-slate-400">將套用至分頁日期</div>
-          <div class="text-sm font-black text-emerald-300">{{ detectedPadletPost.targetIso }}</div>
+
+        <!-- 方案三：連假/彈性手動調整收件日期 -->
+        <div class="pt-3 border-t border-indigo-500/20 flex flex-col gap-2">
+          <label class="text-xs font-bold text-emerald-300 flex items-center justify-between gap-2">
+            <span>🎯 派送至網站「收件檢查日期」（遇連假可在此改派）：</span>
+            <span v-if="detectedPadletPost.targetIso" class="font-mono text-white bg-emerald-600/30 px-2 py-0.5 rounded border border-emerald-500/40">
+              {{ detectedPadletPost.targetIso }} ({{ getWeekdayNameFromIso(detectedPadletPost.targetIso) }})
+            </span>
+          </label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <select v-model="detectedPadletPost.targetIso"
+                    class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-xs sm:text-sm text-white font-bold focus:outline-none focus:border-cyan-400">
+              <option v-for="opt in syncTargetDayOptions" :key="opt.iso" :value="opt.iso">
+                {{ opt.label }}
+              </option>
+            </select>
+            <input type="date" v-model="detectedPadletPost.targetIso"
+                   class="bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-xs sm:text-sm text-cyan-300 font-mono font-bold focus:outline-none focus:border-cyan-400"
+                   title="自訂任意收件日期（適用長連假）" />
+          </div>
+          <div v-if="isDayLocked(detectedPadletPost.targetIso)" class="text-[11px] text-rose-300 font-bold bg-rose-950/50 border border-rose-500/40 px-2.5 py-1.5 rounded-lg">
+            🔒 注意：目標日期目前已被導師鎖定，套用前系統會請您輸入認證碼解鎖。
+          </div>
+          <div v-else-if="hasMissingRecordsOnDay(detectedPadletPost.targetIso)" class="text-[11px] text-amber-300 font-bold bg-amber-950/50 border border-amber-500/40 px-2.5 py-1.5 rounded-lg">
+            ⚠️ 提醒：該日已有同學被登記為未交，套用同名作業將會自動保留既有的未交紀錄。
+          </div>
         </div>
       </div>
 
@@ -1879,9 +1925,23 @@ createApp({
       }
       if (!m || !d || m < 1 || m > 12 || d < 1 || d > 31) return null;
       if (pubMonth === 12 && m === 1) year += 1;
+      else if (pubMonth === 1 && m === 12) year -= 1;
       const mm = String(m).padStart(2, '0');
       const dd = String(d).padStart(2, '0');
       return { iso: `${year}-${mm}-${dd}`, label: clean };
+    };
+
+    // ✅ 方案一：將 Padlet「出作業日」自動順延一個上課日為「收作業日」（週一~四 +1天，週五 +3天，週六 +2天）
+    const shiftToNextSchoolDay = (iso) => {
+      if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+      const parts = iso.split('-');
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const day = d.getDay(); // 0=日, 1=一 ... 5=五, 6=六
+      let addDays = 1;
+      if (day === 5) addDays = 3; // 週五出的作業 ➔ 下週一收
+      else if (day === 6) addDays = 2; // 週六出的作業 ➔ 下週一收
+      d.setDate(d.getDate() + addDays);
+      return getIsoDate(d);
     };
 
     // Padlet 同步狀態
@@ -1889,7 +1949,7 @@ createApp({
     const syncSourceLabel = ref('準備同步中');
     const padletLatestDate = ref('--');
     const padletPostsMap = ref({});
-    const detectedPadletPost = ref({ title: '', date: '', targetIso: '' });
+    const detectedPadletPost = ref({ title: '', date: '', assignedIso: '', targetIso: '' });
     const detectedTasks = ref([]);
 
     const detectedWeekBadges = computed(() => {
@@ -1901,11 +1961,60 @@ createApp({
           return {
             iso: d.iso,
             label: post.title,
+            targetName: d.name,
+            targetShortDate: d.shortDate,
             taskCount: hwTasks.length + 1
           };
         })
         .filter(Boolean);
     });
+
+    // ✅ 方案三：提供鄰近上課日快速下拉清單（支援連假改派收件日）
+    const syncTargetDayOptions = computed(() => {
+      const baseIso = detectedPadletPost.value.assignedIso || todayIso;
+      const defaultDueIso = shiftToNextSchoolDay(baseIso);
+      const parts = (detectedPadletPost.value.targetIso || todayIso).split('-');
+      const anchor = parts.length === 3
+        ? new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10))
+        : new Date(now);
+      const start = new Date(anchor);
+      start.setDate(start.getDate() - 7);
+
+      const opts = [];
+      const seen = new Set();
+      const wdNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+      for (let i = 0; i <= 21; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const wd = d.getDay();
+        if (wd === 0 || wd === 6) continue;
+        const iso = getIsoDate(d);
+        seen.add(iso);
+        const tags = [];
+        if (iso === defaultDueIso) tags.push('預設順延收件日');
+        if (iso === todayIso) tags.push('今日');
+        if (iso === baseIso) tags.push('Padlet原出題日');
+        const suffix = tags.length > 0 ? `【${tags.join(' / ')}】` : '';
+        opts.push({
+          iso,
+          label: `${iso} (${wdNames[wd]}) ${suffix}`.trim()
+        });
+      }
+      if (detectedPadletPost.value.targetIso && !seen.has(detectedPadletPost.value.targetIso)) {
+        const tIso = detectedPadletPost.value.targetIso;
+        opts.unshift({
+          iso: tIso,
+          label: `${tIso} (自訂日期)`
+        });
+      }
+      return opts;
+    });
+
+    const hasMissingRecordsOnDay = (iso) => {
+      if (!iso || !allDaysData.value || !allDaysData.value[iso]) return false;
+      const rec = allDaysData.value[iso].records;
+      return !!(rec && Object.values(rec).some(v => v === 'missing'));
+    };
 
     // 🌟 全系統每日數據存儲中心 (Key: isoDate)
     const allDaysData = ref({});
@@ -1966,6 +2075,7 @@ createApp({
                   absentStudents: Array.isArray(day.absentStudents) ? day.absentStudents : [],
                   activeHwId: preservedActiveHwId,
                   padletSyncedSig: day.padletSyncedSig || (localDay ? localDay.padletSyncedSig || '' : ''),
+                  padletSourceTitle: day.padletSourceTitle || (localDay ? localDay.padletSourceTitle || '' : ''),
                   manuallyEdited: day.manuallyEdited !== undefined ? !!day.manuallyEdited : !!(localDay && localDay.manuallyEdited),
                   isLocked: day.isLocked !== undefined ? !!day.isLocked : !!(localDay && localDay.isLocked)
                 };
@@ -2074,6 +2184,7 @@ createApp({
           absentStudents: [],
           activeHwId: 'hw_contact_book',
           padletSyncedSig: '',
+          padletSourceTitle: '',
           manuallyEdited: false,
           isLocked: false
         };
@@ -2114,6 +2225,15 @@ createApp({
         : [];
     });
 
+    const currentDayPadletSource = computed(() => {
+      if (!currentDayObject.value) return '';
+      const iso = currentDayObject.value.iso;
+      if (currentActiveDayData.value && currentActiveDayData.value.padletSourceTitle) {
+        return currentActiveDayData.value.padletSourceTitle;
+      }
+      return padletPostsMap.value[iso] ? padletPostsMap.value[iso].title : '';
+    });
+
     // 細粒度雲端同步函式：精準更新單一節點，避免整包覆蓋導致競態覆寫或未交被消除
     const syncSingleRecordToCloud = (iso, key, status) => {
       if (rtdb && isCloudSyncActive.value) {
@@ -2148,13 +2268,18 @@ createApp({
       }
     };
 
-    // ✅ 細粒度同步：僅更新單日的 manuallyEdited 與 padletSyncedSig 旗標
-    const syncDayMetaToCloud = (iso, manuallyEdited, padletSyncedSig) => {
+    // ✅ 細粒度同步：僅更新單日的 manuallyEdited、padletSyncedSig 與來源貼文標題
+    const syncDayMetaToCloud = (iso, manuallyEdited, padletSyncedSig, padletSourceTitle) => {
       if (rtdb && isCloudSyncActive.value) {
-        rtdb.ref(`lingyi_607/weekly_data/allDaysData/${iso}`).update({
+        const updatePayload = {
           manuallyEdited: !!manuallyEdited,
           padletSyncedSig: padletSyncedSig || ''
-        }).catch(e => console.warn('雲端更新作業狀態旗標失敗', e));
+        };
+        if (padletSourceTitle !== undefined) {
+          updatePayload.padletSourceTitle = padletSourceTitle || '';
+        }
+        rtdb.ref(`lingyi_607/weekly_data/allDaysData/${iso}`).update(updatePayload)
+          .catch(e => console.warn('雲端更新作業狀態旗標失敗', e));
       }
     };
 
@@ -2880,7 +3005,8 @@ createApp({
 
         posts.push({
           title: rawTitle,
-          iso: dateInfo.iso,
+          assignedIso: dateInfo.iso,
+          iso: shiftToNextSchoolDay(dateInfo.iso), // ✅ 方案一：出作業日自動順延至下一個上課日收件
           pubDate,
           postUrl,
           tasks
@@ -2889,7 +3015,7 @@ createApp({
       return posts;
     };
 
-    const applyTasksToDay = (targetIso, taskTitles, markAsPadletSynced = true) => {
+    const applyTasksToDay = (targetIso, taskTitles, markAsPadletSynced = true, sourceTitle = '') => {
       const day = ensureDayData(targetIso);
       const existingByTitle = new Map();
       (day.homeworkList || []).forEach(hw => {
@@ -2946,6 +3072,9 @@ createApp({
       if (markAsPadletSynced) {
         day.padletSyncedSig = taskTitles.join('||');
         day.manuallyEdited = false;
+        if (sourceTitle) {
+          day.padletSourceTitle = sourceTitle;
+        }
       }
       if (!finalItems.some(h => h.id === day.activeHwId)) {
         day.activeHwId = 'hw_contact_book';
@@ -2954,7 +3083,7 @@ createApp({
       // ✅ 細粒度同步：僅更新本日 homeworkList，不全量覆蓋
       syncDayHomeworkListToCloud(targetIso, finalItems);
       if (markAsPadletSynced) {
-        syncDayMetaToCloud(targetIso, false, taskTitles.join('||'));
+        syncDayMetaToCloud(targetIso, false, taskTitles.join('||'), sourceTitle || day.padletSourceTitle || '');
       }
 
       return day;
@@ -2965,6 +3094,7 @@ createApp({
       detectedPadletPost.value = {
         title: post.title || '最新',
         date: post.pubDate || '',
+        assignedIso: post.assignedIso || '',
         targetIso: post.iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso)
       };
 
@@ -3012,8 +3142,17 @@ createApp({
           .join('||');
 
         if (currSig === sig) {
+          let metaChanged = false;
           if (day.padletSyncedSig !== sig) {
             day.padletSyncedSig = sig;
+            metaChanged = true;
+          }
+          if (!day.padletSourceTitle && post.title) {
+            day.padletSourceTitle = post.title;
+            metaChanged = true;
+          }
+          if (metaChanged) {
+            syncDayMetaToCloud(d.iso, !!day.manuallyEdited, sig, day.padletSourceTitle || post.title);
           }
           return;
         }
@@ -3025,16 +3164,16 @@ createApp({
         const locked = !!day.isLocked;
 
         if ((isEmptyDay || isUnmodifiedPadletDay) && !hasRecords && !locked) {
-          applyTasksToDay(d.iso, hwTitles, true);
+          applyTasksToDay(d.iso, hwTitles, true, post.title);
           changed = true;
-          latestUpdatedLabel = post.title;
+          latestUpdatedLabel = `${post.title} ➔ ${d.name}(${d.shortDate})收件`;
         }
       });
 
       if (changed) {
         saveAllToStorage();
         if (!silent && latestUpdatedLabel) {
-          showToast(`✨ 已自動同步 Padlet【${latestUpdatedLabel}】作業！`);
+          showToast(`✨ 已自動同步 Padlet【${latestUpdatedLabel}】！`);
         }
       }
     };
@@ -3066,7 +3205,7 @@ createApp({
             reconcileWeekWithPadletPosts(false);
 
             // 手動點擊同步時，優先顯示目前分頁日期對應的 Padlet 貼文，否則顯示最新貼文
-            const targetPost = (activeTab.value !== 'summary' && map[activeTab.value])
+            const targetPost = (activeTab.value !== 'summary' && activeTab.value !== 'analytics' && map[activeTab.value])
               ? map[activeTab.value]
               : latestPost;
             openConfirmModalForPost(targetPost);
@@ -3091,23 +3230,27 @@ createApp({
           const map = { ...padletPostsMap.value };
 
           if (data.byDate && typeof data.byDate === 'object') {
-            for (const [iso, item] of Object.entries(data.byDate)) {
+            for (const [assignedIso, item] of Object.entries(data.byDate)) {
               const titles = (item.homeworkList || [])
                 .map(h => h.title)
                 .filter(t => t && t !== '聯絡簿');
-              map[iso] = {
-                title: item.postTitle || iso,
-                iso,
+              const dueIso = shiftToNextSchoolDay(assignedIso);
+              map[dueIso] = {
+                title: item.postTitle || assignedIso,
+                assignedIso,
+                iso: dueIso,
                 pubDate: item.pubDate || '',
                 tasks: titles
               };
             }
           } else if (data && Array.isArray(data.homeworkList) && data.homeworkList.length) {
             const parsedDate = parsePadletDateTitle(data.postTitle, data.pubDate);
-            const fallbackIso = parsedDate ? parsedDate.iso : todayIso;
-            map[fallbackIso] = {
+            const assignedIso = parsedDate ? parsedDate.iso : todayIso;
+            const dueIso = shiftToNextSchoolDay(assignedIso);
+            map[dueIso] = {
               title: data.postTitle || '最新',
-              iso: fallbackIso,
+              assignedIso,
+              iso: dueIso,
               pubDate: data.pubDate || '',
               tasks: data.homeworkList.map(h => h.title).filter(t => t && t !== '聯絡簿')
             };
@@ -3120,7 +3263,7 @@ createApp({
             reconcileWeekWithPadletPosts(false);
 
             const fallbackKey = Object.keys(map).sort().pop();
-            const targetPost = (activeTab.value !== 'summary' && map[activeTab.value])
+            const targetPost = (activeTab.value !== 'summary' && activeTab.value !== 'analytics' && map[activeTab.value])
               ? map[activeTab.value]
               : map[fallbackKey];
             openConfirmModalForPost(targetPost);
@@ -3202,19 +3345,21 @@ createApp({
         .map(t => t.title)
         .filter(t => t && t !== '聯絡簿');
 
-      applyTasksToDay(targetIso, titles, true);
+      applyTasksToDay(targetIso, titles, true, detectedPadletPost.value.title);
 
       if (weekDays.value.some(d => d.iso === targetIso)) {
         activeTab.value = targetIso;
+      } else {
+        jumpToHistoricalDate(targetIso);
       }
 
       saveAllToStorage();
       // ✅ 細粒度同步：只更新作業列表與旗標
       const dayAfter = ensureDayData(targetIso);
       syncDayHomeworkListToCloud(targetIso, dayAfter.homeworkList);
-      syncDayMetaToCloud(targetIso, false, dayAfter.padletSyncedSig || '');
+      syncDayMetaToCloud(targetIso, false, dayAfter.padletSyncedSig || '', detectedPadletPost.value.title || '');
       showSyncConfirmModal.value = false;
-      showToast(`已成功套用【${detectedPadletPost.value.title}】作業！`);
+      showToast(`已成功套用【${detectedPadletPost.value.title}】作業至 ${targetIso} 收件！`);
       triggerConfetti();
       playClickSound('complete');
     };
@@ -3441,12 +3586,16 @@ createApp({
       disconnectFirebase,
       currentHomeworkList,
       currentAbsentList,
+      currentDayPadletSource,
       activeHwId,
       currentHw,
       syncStatus,
       syncSourceLabel,
       padletLatestDate,
       detectedWeekBadges,
+      syncTargetDayOptions,
+      hasMissingRecordsOnDay,
+      getWeekdayNameFromIso,
       detectedPadletPost,
       detectedTasks,
       isAbsent,
