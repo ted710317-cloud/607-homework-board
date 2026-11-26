@@ -1,0 +1,4140 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>班級作業佈告欄 - 班級作業清點系統</title>
+  <script>
+    window.__BAKED_BOARD_CONFIG__ = /*__BAKED_CONFIG_PLACEHOLDER__*/null;
+  </script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vue 3 -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <!-- Firebase Compat 10.x SDK (即時跨電腦同步核心) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+            }
+          },
+          animation: {
+            'float-bubble': 'floatBubble 8s infinite ease-in-out',
+            'pulse-subtle': 'pulseSubtle 2.5s infinite',
+          },
+          keyframes: {
+            floatBubble: {
+              '0%, 100%': { transform: 'translateY(0) scale(1)', opacity: 0.25 },
+              '50%': { transform: 'translateY(-25px) scale(1.08)', opacity: 0.45 },
+            },
+            pulseSubtle: {
+              '0%, 100%': { opacity: 1 },
+              '50%': { opacity: 0.8 },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+    body {
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      user-select: none;
+      background-color: #0b1120;
+    }
+    .grid-cell {
+      transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .grid-cell:active {
+      transform: scale(0.92);
+    }
+    [v-cloak] { display: none; }
+    
+    /* 汽泡動態裝飾 */
+    .bubble {
+      position: absolute;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.25), rgba(99, 102, 241, 0.05));
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    /* 自訂滾動條 */
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.7);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(99, 102, 241, 0.4);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(99, 102, 241, 0.7);
+    }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col antialiased relative overflow-x-hidden">
+
+<!-- 汽泡水背景動態裝飾 -->
+<div class="fixed inset-0 overflow-hidden pointer-events-none z-0">
+  <div class="bubble w-28 h-28 top-12 left-[8%] animate-float-bubble" style="animation-duration: 9s;"></div>
+  <div class="bubble w-20 h-20 top-1/3 right-[12%] animate-float-bubble" style="animation-duration: 7s; animation-delay: 2s;"></div>
+  <div class="bubble w-36 h-36 bottom-20 left-[20%] animate-float-bubble" style="animation-duration: 11s; animation-delay: 1s;"></div>
+  <div class="bubble w-16 h-16 bottom-1/4 right-[25%] animate-float-bubble" style="animation-duration: 8s; animation-delay: 3s;"></div>
+</div>
+
+<div id="app" v-cloak class="flex-1 flex flex-col relative z-10">
+
+  <!-- ================= 頂部狀態導覽列 ================= -->
+  <header class="bg-slate-900/90 border-b border-indigo-900/50 px-4 sm:px-5 py-2 shadow-2xl backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      
+      <!-- 網站主標題與氣泡水品牌 -->
+      <div class="flex items-center space-x-2.5">
+        <div :class="themeAccentClass"
+             class="w-9 h-9 rounded-xl flex items-center justify-center shadow-lg font-black text-xl text-white">
+          {{ boardConfig.icon || '🫧' }}
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-base sm:text-lg font-black tracking-wide text-white flex items-center gap-2 whitespace-nowrap">
+              {{ boardConfig.boardTitle }}
+              <span class="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold hidden 2xl:inline-flex">
+                {{ boardConfig.className }} 講台清點專用
+              </span>
+            </h1>
+            
+            <!-- 跨電腦雲端同步狀態指示燈 (重要升級功能) -->
+            <button @click="showCloudSyncModal = true"
+                    :class="isCloudSyncActive ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/40 hover:bg-amber-500/30'"
+                    class="text-[11px] px-2 py-0.5 rounded-full border font-bold flex items-center gap-1 transition cursor-pointer whitespace-nowrap"
+                    :title="isCloudSyncActive ? '雲端即時同步已連線：多台電腦點選即時同步！' : '目前為本機單機模式：點此開啟多台電腦即時同步！'">
+              <span class="w-1.5 h-1.5 rounded-full" :class="isCloudSyncActive ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
+              <span>{{ isCloudSyncActive ? '☁️ 雲端即時連線中' : '☁️ 設定多電腦同步' }}</span>
+            </button>
+          </div>
+
+          <div class="text-[11px] text-slate-400 font-medium flex items-center gap-2 mt-0.5">
+            <span>📅 目前顯示：<strong class="text-indigo-300">{{ currentDayObject ? currentDayObject.name + ' ' + currentDayObject.shortDate : '本週總表' }}</strong></span>
+            <span>•</span>
+            <span>全班：<strong class="text-slate-200">{{ totalActiveStudents }}</strong> 人</span>
+            <span v-if="currentAbsentList.length > 0" class="text-amber-400 font-bold">
+              • 請假：{{ currentAbsentList.join(', ') }} 號
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側工具快捷操作列 -->
+      <div class="flex items-center flex-wrap gap-1">
+        
+        <!-- 自動同步 Padlet 按鈕 -->
+        <button @click="showSyncOptionsModal = true"
+                class="px-2 py-1.5 rounded-xl text-xs font-bold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 transition flex items-center gap-1 shadow-sm active:scale-95 whitespace-nowrap">
+          <span :class="{'animate-spin': syncStatus === 'syncing'}">🔄</span>
+          <span>同步 Padlet</span>
+        </button>
+
+        <!-- 🏫 教室需要的工具快捷入口（含直達連結與設定齒輪） -->
+        <div class="flex items-center bg-purple-950/40 border border-purple-500/40 rounded-xl p-0.5 shadow-sm">
+          <button @click="handleTeachingToolClick"
+                  class="px-2 py-1 rounded-lg text-xs font-bold text-purple-200 hover:text-white hover:bg-purple-600/30 transition flex items-center gap-1 active:scale-95 whitespace-nowrap"
+                  :title="teachingToolDirectOpen ? '直達模式：點擊前往 ' + (teachingToolName || '教室工具') : '點擊開啟教室工具箱選單'">
+            <span>🏫</span>
+            <span>教室工具</span>
+            <span class="text-[10px] text-purple-300 opacity-80">{{ teachingToolDirectOpen ? '↗' : '▼' }}</span>
+          </button>
+          <button @click="openTeachingToolSettings"
+                  class="px-1.5 py-1 rounded-lg text-xs text-purple-300/80 hover:text-white hover:bg-purple-600/40 transition"
+                  title="自訂教室工具網址與推薦平台">
+            ⚙️
+          </button>
+        </div>
+
+        <!-- 設定請假 -->
+        <button v-if="activeTab !== 'summary' && activeTab !== 'analytics'" @click="handleAbsentClick"
+                class="px-2 py-1.5 rounded-xl text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
+          <span>🩺 今日請假</span>
+          <span v-if="currentAbsentList.length > 0" class="w-4 h-4 rounded-full bg-amber-500 text-slate-950 text-[10px] flex items-center justify-center font-black">
+            {{ currentAbsentList.length }}
+          </span>
+        </button>
+
+        <!-- 編輯作業 -->
+        <button v-if="activeTab !== 'summary' && activeTab !== 'analytics'" @click="handleEditHomeworkClick"
+                class="px-2 py-1.5 rounded-xl text-xs font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30 hover:bg-sky-500/25 transition flex items-center gap-1 shadow-sm whitespace-nowrap">
+          <span>📝 編輯項目</span>
+          <span class="w-4 h-4 rounded-full bg-sky-500 text-slate-900 text-[10px] flex items-center justify-center font-black">
+            {{ currentHomeworkList.length }}
+          </span>
+        </button>
+
+        <!-- 🔒 教師鎖定看板按鍵 -->
+        <button v-if="activeTab !== 'summary' && activeTab !== 'analytics'" @click="handleLockToggleClick"
+                :class="isCurrentDayLocked ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 hover:bg-rose-500/30 ring-1 ring-rose-500/40 shadow-rose-900/40 shadow-sm' : 'bg-slate-800 hover:bg-slate-750 text-slate-300 border-slate-700'"
+                class="px-2 py-1.5 rounded-xl text-xs font-bold border transition flex items-center gap-1 shadow-sm whitespace-nowrap active:scale-95 cursor-pointer"
+                :title="isCurrentDayLocked ? '今日看板已由導師鎖定保護中，點擊輸入認證碼解鎖' : '點擊鎖定今日看板，防止學生誤觸或更改'">
+          <span v-if="isCurrentDayLocked" class="flex items-center gap-1 text-rose-300 font-black">
+            <span class="animate-pulse">🔒</span>
+            <span>已鎖定</span>
+          </span>
+          <span v-else class="flex items-center gap-1 text-slate-300">
+            <span>🔓</span>
+            <span>鎖定看板</span>
+          </span>
+        </button>
+
+        <!-- 一鍵複製 LINE 催繳訊息 -->
+        <button @click="copyReport"
+                class="px-2.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center gap-1 shadow-lg shadow-emerald-600/30 active:scale-95 whitespace-nowrap">
+          <span>📋 {{ (activeTab === 'summary' || activeTab === 'analytics') ? '複製未交總清單' : '複製未交' }}</span>
+        </button>
+
+        <!-- 音效開關 -->
+        <button @click="soundEnabled = !soundEnabled"
+                :class="soundEnabled ? 'bg-slate-800 text-emerald-400 border-slate-700' : 'bg-slate-900 text-slate-500 border-slate-800'"
+                class="px-2 py-1.5 rounded-xl text-xs font-bold border transition hover:bg-slate-800" :title="soundEnabled ? '點擊關閉音效' : '點擊開啟音效'">
+          <span v-if="soundEnabled">🔊</span>
+          <span v-else>🔇</span>
+        </button>
+
+        <!-- 視圖切換：組長點收模式 vs 黑板大看板模式 -->
+        <div v-if="activeTab !== 'summary' && activeTab !== 'analytics'" class="flex bg-slate-950 p-0.5 rounded-xl border border-slate-800 whitespace-nowrap">
+          <button @click="currentView = 'check'"
+                  :class="currentView === 'check' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-400 hover:text-white'"
+                  class="px-2.5 py-1 rounded-lg text-xs transition">
+            組長點選
+          </button>
+          <button @click="currentView = 'board'"
+                  :class="currentView === 'board' ? 'bg-indigo-600 text-white shadow-md font-bold' : 'text-slate-400 hover:text-white'"
+                  class="px-2.5 py-1 rounded-lg text-xs transition">
+            黑板大看板
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 浮動提示 Toast -->
+  <div v-if="toastMsg" class="fixed top-20 right-6 z-50 bg-emerald-500 text-slate-950 font-black px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2 animate-bounce border border-emerald-300">
+    <span>💡</span>
+    <span>{{ toastMsg }}</span>
+  </div>
+
+  <!-- ================= 核心導覽：禮拜一到禮拜五的分頁導覽列 (週一至週五 Tabs) ================= -->
+  <section class="bg-slate-900/60 border-b border-slate-800/80 px-4 sm:px-6 py-2 sticky top-[57px] z-30 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+      
+      <!-- 上一週 / 下一週 切換按鈕 -->
+      <div class="flex items-center gap-2 text-xs font-bold text-slate-300">
+        <button @click="changeWeek(-1)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
+          <span>◀</span> 上一週
+        </button>
+        <span class="px-3 py-1 rounded-lg bg-indigo-950/60 text-indigo-300 border border-indigo-700/40 font-mono text-xs">
+          {{ weekLabel }}
+        </span>
+        <button @click="changeWeek(1)" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1">
+          下一週 <span>▶</span>
+        </button>
+        <button v-if="!isCurrentWeek" @click="resetToCurrentWeek" class="text-xs text-cyan-400 hover:underline ml-1">
+          回本週
+        </button>
+      </div>
+
+      <!-- 禮拜一到禮拜五的分頁標籤 (週一至週五 + 彙整總表) -->
+      <div class="flex items-center flex-wrap gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+        <button v-for="day in weekDays" :key="day.iso"
+                @click="switchDay(day.iso)"
+                :class="activeTab === day.iso ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white font-black shadow-lg shadow-indigo-900/40 border-cyan-400' : 'bg-slate-800/80 hover:bg-slate-750 text-slate-300 border-slate-700/80'"
+                class="px-3.5 py-2 rounded-xl text-xs sm:text-sm border transition flex items-center gap-2 relative overflow-hidden group flex-shrink-0">
+          
+          <div class="flex items-center gap-1.5">
+            <span>{{ day.name }}</span>
+            <span class="text-[11px] opacity-75 font-mono">({{ day.shortDate }})</span>
+          </div>
+
+          <!-- 今日標籤 -->
+          <span v-if="day.iso === todayIso"
+                :class="activeTab === day.iso ? 'bg-white text-indigo-900' : 'bg-cyan-500 text-slate-950'"
+                class="text-[9px] px-1.5 py-0.2 rounded-full font-black uppercase">
+            今日
+          </span>
+
+          <!-- 每日狀態指示徽章 -->
+          <span v-if="getDayMissingCount(day.iso) === 0 && getDayTaskCount(day.iso) > 0"
+                class="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-500/40" title="全部繳齊"></span>
+          <span v-else-if="getDayMissingCount(day.iso) > 0"
+                class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black" :title="'欠 ' + getDayMissingCount(day.iso) + ' 人'">
+            {{ getDayMissingCount(day.iso) }}
+          </span>
+
+          <!-- 🔒 鎖定小徽章 -->
+          <span v-if="isDayLocked(day.iso)" class="text-[10px]" title="該日已被導師鎖定保護">
+            🔒
+          </span>
+        </button>
+
+        <!-- 本週彙整總表分頁 (每週作業缺交大盤點) -->
+        <button @click="activeTab = 'summary'"
+                :class="activeTab === 'summary' ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white font-black shadow-lg shadow-purple-900/40 border-purple-400' : 'bg-slate-800/80 hover:bg-slate-750 text-slate-300 border-slate-700/80'"
+                class="px-3.5 py-2 rounded-xl text-xs sm:text-sm border transition flex items-center gap-1.5 flex-shrink-0">
+          <span>📊</span>
+          <span>本週總表</span>
+          <span v-if="totalWeeklyMissingCount > 0" class="px-2 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black animate-pulse">
+            欠 {{ totalWeeklyMissingCount }}
+          </span>
+          <span v-else-if="hasAnyTasksThisWeek" class="px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-black">
+            全齊
+          </span>
+        </button>
+
+        <!-- 📈 教師統計後臺分頁 (跨週/整學期統計、單一學生履歷查詢、匯出 Excel) -->
+        <button @click="activeTab = 'analytics'"
+                :class="activeTab === 'analytics' ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-black shadow-lg shadow-amber-900/40 border-amber-300' : 'bg-slate-800/80 hover:bg-slate-750 text-amber-300 border-amber-500/40'"
+                class="px-3.5 py-2 rounded-xl text-xs sm:text-sm border transition flex items-center gap-1.5 flex-shrink-0">
+          <span>📈</span>
+          <span>學期統計後臺</span>
+        </button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 主內容區 -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 flex flex-col gap-3">
+
+    <!-- ================= 👑 本週組長簽到欄（依班級設定顯示組數，方便導師加扣分追蹤） ================= -->
+    <div v-if="activeTab !== 'analytics' && boardConfig.leaderGroupCount > 0"
+         class="bg-gradient-to-r from-amber-950/40 via-slate-800/90 to-indigo-950/40 border border-amber-500/35 rounded-2xl px-3.5 py-2 shadow-lg flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="px-2.5 py-1 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black flex items-center gap-1.5">
+          <span>👑</span>
+          <span>本週組長簽到</span>
+          <span class="font-mono text-[11px] opacity-85 hidden sm:inline">({{ weekLabel }})</span>
+        </span>
+      </div>
+
+      <!-- 組長座號輸入空格 (第 1 組 ~ 第 N 組) -->
+      <div class="flex items-center flex-wrap gap-1.5 sm:gap-2 flex-1 justify-start lg:justify-center">
+        <div v-for="gIdx in boardConfig.leaderGroupCount" :key="gIdx"
+             :class="currentWeekLeaders[gIdx - 1] ? 'border-emerald-500/50 bg-slate-900/95' : 'border-slate-700 bg-slate-950/80'"
+             class="flex items-center gap-1 px-2 py-1 rounded-xl border transition focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-400/25">
+          <span class="text-[11px] font-bold text-slate-400 whitespace-nowrap">第{{ gIdx }}組</span>
+          <input type="text"
+                 inputmode="numeric"
+                 maxlength="2"
+                 :value="currentWeekLeaders[gIdx - 1]"
+                 @input="onLeaderSeatInput(gIdx - 1, $event)"
+                 @blur="finalizeLeaderSeat(gIdx - 1, $event)"
+                 :disabled="isCurrentWeekLeadersLocked"
+                 placeholder="座號"
+                 :class="isCurrentWeekLeadersLocked ? 'cursor-not-allowed opacity-80' : ''"
+                 class="w-9 bg-transparent text-center text-sm font-black text-amber-300 placeholder-slate-600 focus:outline-none font-mono"
+                 :aria-label="'第' + gIdx + '組組長座號'" />
+          <span v-if="currentWeekLeaders[gIdx - 1]" class="text-[11px] font-bold text-emerald-400">號</span>
+        </div>
+      </div>
+
+      <!-- 右側快捷操作：複製名單 / 鎖定簽到 -->
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button @click="copyWeeklyLeaders"
+                class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition cursor-pointer whitespace-nowrap"
+                title="複製本週六組組長座號名單（方便後續加扣分紀錄）">
+          📋 複製組長
+        </button>
+        <button @click="handleLeadersLockToggle"
+                :class="isCurrentWeekLeadersLocked ? 'bg-rose-500/25 text-rose-200 border-rose-500/50 hover:bg-rose-500/40' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-600'"
+                class="px-2 py-1 rounded-xl text-[11px] font-bold border transition cursor-pointer whitespace-nowrap"
+                :title="isCurrentWeekLeadersLocked ? '組長簽到已鎖定，點擊輸入認證碼解鎖' : '組長簽到完成後可鎖定，防止學生誤改'">
+          {{ isCurrentWeekLeadersLocked ? '🔒 已鎖' : '🔓 鎖定' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= 視圖 A: 單日模式（週一 ~ 週五之其中一日） ================= -->
+    <template v-if="activeTab !== 'summary' && activeTab !== 'analytics'">
+      
+      <!-- 導師鎖定看板保護告示條 (當日已鎖定時醒目展示) -->
+      <div v-if="isCurrentDayLocked"
+           class="bg-gradient-to-r from-rose-950/85 via-slate-900 to-amber-950/85 border border-rose-500/50 rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-lg backdrop-blur">
+        <div class="flex items-center gap-2 text-xs sm:text-sm font-bold text-rose-200">
+          <span class="text-base animate-pulse">🔒</span>
+          <span>本日作業看板已由導師鎖定（唯讀保護模式）：所有作業與座號點選均已保護，組長或學生無法隨意改動。</span>
+        </div>
+        <button @click="openUnlockModal"
+                class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs transition shadow-md shadow-rose-600/30 flex items-center gap-1.5 active:scale-95 cursor-pointer">
+          <span>🔑</span>
+          <span>輸入認證碼解鎖</span>
+        </button>
+      </div>
+
+      <!-- ================= 視圖 A-1: 組長點選登記模式 (A2 方案：多卡片並排網格，單日所有作業同畫面展開) ================= -->
+      <div v-if="currentView === 'check'" class="flex-1 flex flex-col gap-2.5">
+
+        <!-- 頂部簡潔操作說明列 -->
+        <div class="bg-slate-800/80 border border-slate-700/80 rounded-2xl px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 shadow-md">
+          <div class="flex items-center flex-wrap gap-2 text-xs">
+            <span class="px-2 py-0.5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-black flex items-center gap-1">
+              <span>📋</span>
+              <span>{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '本日' }} 收件作業（共 {{ currentHomeworkList.length }} 項）</span>
+            </span>
+            <span v-if="currentDayPadletSource"
+                  class="px-2 py-0.5 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold flex items-center gap-1"
+                  title="前一個上課日於 Padlet 發布的作業已自動順延排入今日收件">
+              <span>📌</span>
+              <span>源自 Padlet【{{ currentDayPadletSource }}】聯絡簿</span>
+            </span>
+            <span class="text-slate-300">
+              👉 <strong class="text-amber-300">免切換科目！</strong>所有作業已同畫面展開：預設<span class="text-emerald-400 font-bold">綠燈已交</span>，點擊座號變<span class="text-rose-400 font-bold">紅燈未交 ❌</span>，再點一次恢復已交。
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2 text-xs">
+            <span v-if="getDayMissingCount(currentDayObject ? currentDayObject.iso : todayIso) === 0"
+                  class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-black">
+              🎉 本日全班所有作業均已繳齊！
+            </span>
+            <span v-else
+                  class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 font-black">
+              ⚠️ 本日各科累計尚有 {{ getDayMissingCount(currentDayObject ? currentDayObject.iso : todayIso) }} 人次未交
+            </span>
+          </div>
+        </div>
+
+        <!-- 2. 多卡片並排網格：同一天所有作業直接同畫面展開 -->
+        <div :class="currentHomeworkList.length >= 5 ? 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3' : (currentHomeworkList.length === 1 ? 'grid-cols-1 max-w-3xl mx-auto w-full' : 'grid-cols-1 lg:grid-cols-2')"
+             class="grid gap-3">
+          
+          <div v-for="(hw, idx) in currentHomeworkList" :key="hw.id"
+               :class="isHomeworkLocked(hw.id) ? 'bg-slate-800/95 border-rose-500/60 ring-1 ring-rose-500/30 shadow-rose-950/30' : (hw.isFixed ? 'bg-slate-800/90 border-amber-500/40 shadow-amber-950/20' : 'bg-slate-800/85 border-slate-700/90')"
+               class="rounded-2xl p-3 border shadow-xl flex flex-col justify-between transition-all hover:border-indigo-500/50">
+            
+            <!-- 卡片頂部：作業標題 + 狀態徽章 + 逐項鎖定按鈕 -->
+            <div>
+              <div class="flex items-center justify-between gap-2 pb-2 mb-2 border-b border-slate-700/80">
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span :class="hw.isFixed ? 'bg-amber-500 text-slate-950' : 'bg-indigo-600 text-white'"
+                        class="w-5 h-5 rounded-md text-xs font-black flex items-center justify-center flex-shrink-0 shadow-sm">
+                    {{ idx + 1 }}
+                  </span>
+                  <h2 class="text-base sm:text-lg font-black text-white truncate" :title="hw.title">
+                    {{ hw.title }}
+                  </h2>
+                  <span v-if="hw.isFixed" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold flex-shrink-0">
+                    固定
+                  </span>
+                </div>
+
+                <!-- 單科狀態徽章 + 逐項鎖定按鍵 -->
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <span v-if="getMissingCount(hw.id) === 0"
+                        class="px-2 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-black text-[11px]">
+                    全齊 🎉
+                  </span>
+                  <span v-else
+                        class="px-2 py-0.5 rounded-lg bg-rose-500 text-white font-black text-[11px] shadow-sm">
+                    缺 {{ getMissingCount(hw.id) }} 人
+                  </span>
+
+                  <button @click="handleHwLockToggleClick(hw)"
+                          :class="isHomeworkLocked(hw.id) ? 'bg-rose-500/25 text-rose-200 border-rose-500/50 hover:bg-rose-500/40' : 'bg-slate-700/80 text-slate-300 border-slate-600 hover:bg-indigo-600/50 hover:text-white hover:border-indigo-400'"
+                          class="px-2 py-0.5 rounded-lg border text-[11px] font-bold flex items-center gap-1 transition cursor-pointer active:scale-95 whitespace-nowrap"
+                          :title="isHomeworkLocked(hw.id) ? '本科已由導師檢核鎖定，點擊輸入認證碼解鎖' : '點擊鎖定本科，檢核完成後防止同學誤觸修改或刪除'">
+                    <span>{{ isHomeworkLocked(hw.id) ? '🔒' : '🔓' }}</span>
+                    <span>{{ isHomeworkLocked(hw.id) ? '已鎖定' : '鎖定' }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 該科全班座號點選矩陣 -->
+              <div class="grid grid-cols-7 sm:grid-cols-9 gap-1.5">
+                <button v-for="seat in activeSeats" :key="seat"
+                        @click="toggleStudentStatus(hw.id, seat)"
+                        :disabled="isAbsent(seat)"
+                        :class="[getSeatButtonClass(hw.id, seat), isHomeworkLocked(hw.id) ? 'cursor-not-allowed opacity-90' : 'cursor-pointer']"
+                        class="grid-cell min-h-[42px] sm:min-h-[46px] rounded-xl flex flex-col items-center justify-center p-0.5 relative shadow-sm select-none border">
+                  
+                  <!-- 座號數字與選填姓名 -->
+                  <span class="text-sm sm:text-base font-black tracking-tight leading-none flex items-center gap-0.5">
+                    <span>{{ seat }}</span>
+                  </span>
+                  <span v-if="getStudentName(seat)" class="text-[9px] font-bold leading-none text-white/90 truncate max-w-full px-0.5 mt-0.5">
+                    {{ getStudentName(seat) }}
+                  </span>
+
+                  <!-- 狀態迷你標籤 -->
+                  <span class="text-[9px] font-bold leading-none mt-0.5">
+                    <template v-if="isAbsent(seat)">
+                      <span class="text-amber-300">請假</span>
+                    </template>
+                    <template v-else-if="getStatus(hw.id, seat) === 'missing'">
+                      <span class="text-white font-black">❌未交</span>
+                    </template>
+                    <template v-else>
+                      <span class="text-emerald-100/90">✔已交</span>
+                    </template>
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 卡片底部：該科未繳交座號快速檢視 + 繳交率進度條 -->
+            <div class="mt-2.5 pt-2 border-t border-slate-700/70 flex flex-col gap-1.5">
+              <div class="flex items-center justify-between gap-2 min-h-[24px]">
+                <div class="flex items-center flex-wrap gap-1 flex-1">
+                  <span class="text-[11px] font-bold text-slate-400">未交：</span>
+                  <span v-if="getMissingList(hw.id).length === 0" class="text-emerald-400 font-bold text-xs">
+                    🎉 全數到齊 ({{ getSubmittedCount(hw.id) }}/{{ totalExpectedToday }}人)
+                  </span>
+                  <template v-else>
+                    <span v-for="seat in getMissingList(hw.id)" :key="seat"
+                          @click="toggleStudentStatus(hw.id, seat)"
+                          class="px-1.5 py-0.2 rounded bg-rose-500/25 text-rose-200 border border-rose-500/50 text-xs font-black cursor-pointer hover:bg-rose-500/40 transition"
+                          title="點擊可直接改為已交">
+                      {{ formatSeatShort(seat) }}
+                    </span>
+                  </template>
+                </div>
+                <span class="text-[11px] text-slate-400 font-bold flex-shrink-0">
+                  {{ getSubmittedCount(hw.id) }}/{{ totalExpectedToday }} ({{ getSubmitPercentage(hw.id) }}%)
+                </span>
+              </div>
+
+              <!-- 迷你進度條 -->
+              <div class="w-full bg-slate-700/60 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-300"
+                     :style="{ width: getSubmitPercentage(hw.id) + '%' }"></div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ================= 視圖 A-2: 黑板大看板模式 (Board / Zen View) ================= -->
+      <div v-if="currentView === 'board'" class="flex-1 flex flex-col gap-6">
+        
+        <!-- 總體橫幅 -->
+        <div class="bg-gradient-to-r from-indigo-900/70 via-purple-900/60 to-slate-900/70 border border-indigo-700/50 rounded-3xl p-6 text-center shadow-2xl relative overflow-hidden">
+          <div class="relative z-10">
+            <h2 class="text-3xl sm:text-4xl font-black text-white tracking-wide mb-2">
+              📢 {{ boardConfig.className }} {{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }} 作業繳交總覽
+            </h2>
+            <div v-if="currentDayPadletSource" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-200 border border-cyan-400/30 text-xs font-bold mb-2">
+              <span>📌</span>
+              <span>本日收件作業源自 Padlet【{{ currentDayPadletSource }}】聯絡簿</span>
+            </div>
+            <p class="text-slate-300 text-base font-medium">
+              請尚未完成作業的同學，於下課或午休前盡速補齊給各科組長！
+            </p>
+          </div>
+        </div>
+
+        <!-- 全科目卡片並列展示 (大字體投影版) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div v-for="hw in currentHomeworkList" :key="hw.id"
+               :class="hw.isFixed ? 'border-amber-500/40 bg-slate-850' : 'border-slate-700 bg-slate-800/90'"
+               class="rounded-3xl p-6 border shadow-xl flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between gap-2 pb-4 border-b border-slate-700/80 mb-4">
+                <div class="flex items-center gap-2 truncate">
+                  <span v-if="hw.isFixed" class="text-xs px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black">第1項</span>
+                  <h3 class="text-2xl font-black text-white truncate" :title="hw.title">{{ hw.title }}</h3>
+                </div>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <span v-if="isHomeworkLocked(hw.id)" class="px-2.5 py-1 rounded-full bg-rose-500/25 text-rose-200 border border-rose-500/50 text-xs font-black">
+                    🔒 已鎖定
+                  </span>
+                  <span v-if="getMissingCount(hw.id) === 0" class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-black">
+                    100% 全交
+                  </span>
+                  <span v-else class="px-3 py-1 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-black">
+                    缺 {{ getMissingCount(hw.id) }} 人
+                  </span>
+                </div>
+              </div>
+
+              <!-- 缺交名單大字顯示 -->
+              <div class="min-h-[140px] flex flex-col justify-center">
+                <div v-if="getMissingList(hw.id).length === 0" class="text-center py-6">
+                  <div class="text-5xl mb-2">🎉</div>
+                  <div class="text-emerald-400 font-black text-xl">全班全數繳齊</div>
+                  <div class="text-slate-400 text-xs mt-1">讚！大家都很有責任感</div>
+                </div>
+
+                <div v-else>
+                  <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    尚未繳交座號：
+                  </div>
+                  <div class="flex flex-wrap gap-2.5">
+                    <span v-for="seat in getMissingList(hw.id)" :key="seat"
+                          @click="toggleStudentStatus(hw.id, seat)"
+                          class="w-12 h-12 rounded-2xl bg-rose-600/30 text-rose-200 border-2 border-rose-500/60 font-black text-xl flex items-center justify-center shadow-lg hover:scale-105 transition cursor-pointer"
+                          title="點擊補交">
+                      {{ seat }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 底部進度 -->
+            <div class="mt-6 pt-4 border-t border-slate-700/60">
+              <div class="flex justify-between text-xs text-slate-400 font-bold mb-1.5">
+                <span>繳交進度</span>
+                <span>{{ getSubmittedCount(hw.id) }} / {{ totalExpectedToday }} 人 ({{ getSubmitPercentage(hw.id) }}%)</span>
+              </div>
+              <div class="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full rounded-full transition-all duration-300"
+                     :style="{ width: getSubmitPercentage(hw.id) + '%' }"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </template>
+
+
+    <!-- ================= 視圖 B: 📊 本週作業未交彙整總表 (Weekly Summary Matrix) ================= -->
+    <template v-if="activeTab === 'summary'">
+      <div class="flex-1 flex flex-col gap-6">
+
+        <!-- 頂部總覽卡片 -->
+        <div class="bg-gradient-to-r from-purple-950/80 via-slate-900 to-indigo-950/80 border border-purple-700/50 rounded-3xl p-6 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4">
+          <div>
+            <h2 class="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
+              <span>📊 {{ boardConfig.className }} 本週作業繳交總清單</span>
+              <span class="text-sm px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 font-mono">
+                {{ weekLabel }}
+              </span>
+            </h2>
+            <p class="text-slate-300 text-sm mt-1">
+              統整週一至週五全班每位同學欠繳作業狀況，協助導師在週五放學前全面清算追蹤。
+            </p>
+          </div>
+
+          <!-- 統計徽章 -->
+          <div class="flex items-center gap-3">
+            <div class="bg-slate-800/90 px-4 py-2.5 rounded-2xl border border-slate-700 text-center">
+              <div class="text-xs text-slate-400 font-bold">本週欠繳總項次</div>
+              <div class="text-2xl font-black text-rose-400">{{ totalWeeklyMissingCount }} 次</div>
+            </div>
+            <div class="bg-slate-800/90 px-4 py-2.5 rounded-2xl border border-slate-700 text-center">
+              <div class="text-xs text-slate-400 font-bold">全週無欠繳人數</div>
+              <div class="text-2xl font-black text-emerald-400">{{ cleanStudentsCount }} / {{ totalActiveStudents }} 人</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 重點提醒：尚有欠繳的學生卡片清單 -->
+        <div class="bg-slate-800/70 border border-slate-700/80 rounded-3xl p-6 shadow-xl">
+          <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-700/70">
+            <h3 class="text-lg font-black text-white flex items-center gap-2">
+              <span class="text-rose-400">⚠️</span>
+              <span>本週尚未繳清同學名單 (共 {{ studentsWithDebt.length }} 人)</span>
+            </h3>
+            <span class="text-xs text-slate-400">點擊右方標籤可立即代為補交銷帳</span>
+          </div>
+
+          <div v-if="studentsWithDebt.length === 0" class="text-center py-10">
+            <div class="text-6xl mb-3">🎉</div>
+            <div class="text-2xl font-black text-emerald-400">太棒了！本週全班作業全數繳齊！</div>
+            <div class="text-slate-400 text-sm mt-1">每一位同學都完成了本週所有作業任務</div>
+          </div>
+
+          <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div v-for="stu in studentsWithDebt" :key="stu.seat"
+                 class="bg-slate-900/80 border border-rose-500/40 rounded-2xl p-4 flex flex-col justify-between shadow-lg hover:border-rose-400 transition">
+              <div>
+                <div class="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
+                  <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-xl bg-rose-600 text-white font-black text-lg flex items-center justify-center shadow-md">
+                      {{ stu.seat }}
+                    </span>
+                    <span class="font-black text-base text-white">{{ stu.seat }} 號同學</span>
+                  </div>
+                  <span class="px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-black">
+                    累計欠 {{ stu.debtList.length }} 項
+                  </span>
+                </div>
+
+                <!-- 具體欠繳清單 (按日期列出) -->
+                <div class="flex flex-col gap-1.5 my-2">
+                  <div v-for="(debt, dIdx) in stu.debtList" :key="dIdx"
+                       class="text-xs bg-slate-950/70 px-2.5 py-1.5 rounded-lg border border-slate-800 flex items-center justify-between group">
+                    <div class="flex items-center gap-1.5 truncate">
+                      <span class="font-bold text-indigo-400">{{ debt.dayName }}:</span>
+                      <span class="text-slate-200 truncate">{{ debt.hwTitle }}</span>
+                    </div>
+                    <button @click="clearSpecificDebt(debt.dayIso, debt.hwId, stu.seat)"
+                            class="text-[10px] px-2 py-0.5 rounded bg-emerald-600/30 hover:bg-emerald-500 text-emerald-300 hover:text-white transition font-bold whitespace-nowrap ml-1"
+                            title="同學補交時點此銷帳">
+                      補交 ✔
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 全班座號本週交聯一覽大表格 (Weekly Matrix Table) -->
+        <div class="bg-slate-800/70 border border-slate-700/80 rounded-3xl p-6 shadow-xl overflow-x-auto">
+          <h3 class="text-lg font-black text-white mb-4 flex items-center gap-2">
+            <span>📅 全班座號本週交聯一覽表 (共 {{ totalActiveStudents }} 人)</span>
+          </h3>
+
+          <table class="w-full text-left text-xs sm:text-sm border-collapse min-w-[700px]">
+            <thead>
+              <tr class="border-b border-slate-700 text-slate-400 uppercase tracking-wider">
+                <th class="py-3 px-3 font-bold w-16 text-center">座號</th>
+                <th v-for="day in weekDays" :key="day.iso" class="py-3 px-3 font-bold text-center">
+                  {{ day.name }} ({{ day.shortDate }})
+                </th>
+                <th class="py-3 px-3 font-bold text-center w-28">本週總欠繳</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-850">
+              <tr v-for="seat in activeSeats" :key="seat"
+                  :class="getStudentTotalDebt(seat).length > 0 ? 'bg-rose-950/15 hover:bg-rose-950/30' : 'hover:bg-slate-800/40'"
+                  class="transition">
+                
+                <!-- 座號 (點擊可開啟該生完整歷史履歷卡) -->
+                <td class="py-3 px-3 font-black text-center text-sm">
+                  <button @click="openStudentHistoryModal(seat)"
+                          :class="getStudentTotalDebt(seat).length > 0 ? 'text-rose-400 font-black hover:underline' : 'text-slate-200 hover:text-cyan-300 hover:underline'"
+                          class="cursor-pointer flex items-center justify-center gap-1 mx-auto"
+                          title="點擊查看該生完整歷史紀錄與家長通知">
+                    <span>{{ formatSeatShort(seat) }}</span>
+                    <span class="text-[10px] opacity-70">🔍</span>
+                  </button>
+                </td>
+
+                <!-- 週一 ~ 週五 各天狀態 -->
+                <td v-for="day in weekDays" :key="day.iso" class="py-2.5 px-3 text-center">
+                  <template v-if="getDayTaskCount(day.iso) === 0">
+                    <span class="text-slate-600 font-mono">-</span>
+                  </template>
+                  <template v-else-if="isStudentAbsentOnDay(day.iso, seat)">
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-amber-300 border border-amber-500/30">請假</span>
+                  </template>
+                  <template v-else-if="getStudentMissingTasksOnDay(day.iso, seat).length === 0">
+                    <span class="text-emerald-400 font-black text-base" title="全交">✔</span>
+                  </template>
+                  <template v-else>
+                    <span @click="switchDay(day.iso)"
+                          class="px-2 py-0.5 rounded-md bg-rose-600/40 text-rose-300 border border-rose-500/60 font-black text-xs cursor-pointer hover:bg-rose-600/60 transition"
+                          :title="getStudentMissingTasksOnDay(day.iso, seat).map(t => t.title).join(', ')">
+                      欠 {{ getStudentMissingTasksOnDay(day.iso, seat).length }} 項
+                    </span>
+                  </template>
+                </td>
+
+                <!-- 本週累計缺交次數 -->
+                <td class="py-3 px-3 text-center">
+                  <span v-if="getStudentTotalDebt(seat).length === 0" class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                    全齊 👍
+                  </span>
+                  <span v-else class="text-xs px-2.5 py-1 rounded-full bg-rose-500 text-white font-black shadow-md">
+                    欠 {{ getStudentTotalDebt(seat).length }} 項
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </template>
+
+
+    <!-- ================= 視圖 C: 📈 教師學期統計後臺 (跨週/整學期統計、個人履歷、匯出 Excel CSV) ================= -->
+    <template v-if="activeTab === 'analytics'">
+      <div class="flex-1 flex flex-col gap-5">
+
+        <!-- 1. 頂部後臺控制中心與總覽儀表板 -->
+        <div class="bg-gradient-to-r from-amber-950/70 via-slate-900 to-indigo-950/80 border border-amber-500/40 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-4">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <div class="flex items-center flex-wrap gap-2">
+                <h2 class="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
+                  <span>📈 {{ boardConfig.className }} 教師學期作業統計後臺</span>
+                </h2>
+                <span class="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                  雲端歷史資料庫即時分析
+                </span>
+              </div>
+              <p class="text-slate-300 text-xs sm:text-sm mt-1">
+                自動彙整所有已登記日期的作業繳交紀錄。點擊任一座號可調出「🔍 個人歷史履歷 & 一鍵複製家長通知」，或匯出 Excel 報表供平時成績評量。
+              </p>
+            </div>
+
+            <!-- 匯出 Excel CSV 雙按鈕 -->
+            <div class="flex flex-wrap items-center gap-2">
+              <button @click="exportStudentSummaryCsv"
+                      class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs transition shadow-lg shadow-emerald-600/30 flex items-center gap-1.5 active:scale-95 cursor-pointer">
+                <span>📥</span>
+                <span>匯出全班個人統計表 (Excel CSV)</span>
+              </button>
+              <button @click="exportDailyDetailCsv"
+                      class="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-black text-xs transition shadow-lg shadow-cyan-600/30 flex items-center gap-1.5 active:scale-95 cursor-pointer">
+                <span>📋</span>
+                <span>匯出每日各科明細表 (Excel CSV)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 篩選統計區間與排序列 -->
+          <div class="pt-3 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
+            <!-- 統計區間切換 -->
+            <div class="flex items-center flex-wrap gap-1.5">
+              <span class="text-xs font-bold text-slate-400 mr-1">📅 統計範圍：</span>
+              <button @click="analyticsRange = 'all'"
+                      :class="analyticsRange === 'all' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'"
+                      class="px-3 py-1 rounded-lg text-xs transition">
+                全部歷史紀錄 ({{ analyticsFilteredDays.length }} 天)
+              </button>
+              <button @click="analyticsRange = 'month'"
+                      :class="analyticsRange === 'month' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'"
+                      class="px-3 py-1 rounded-lg text-xs transition">
+                本月紀錄
+              </button>
+              <button @click="analyticsRange = 'week'"
+                      :class="analyticsRange === 'week' ? 'bg-amber-500 text-slate-950 font-black shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'"
+                      class="px-3 py-1 rounded-lg text-xs transition">
+                當前所選週 ({{ weekLabel }})
+              </button>
+            </div>
+
+            <!-- 排序方式切換 -->
+            <div class="flex items-center gap-1.5">
+              <span class="text-xs font-bold text-slate-400 mr-1">🔃 排序方式：</span>
+              <button @click="analyticsSortBy = 'seat'"
+                      :class="analyticsSortBy === 'seat' ? 'bg-indigo-600 text-white font-black' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'"
+                      class="px-3 py-1 rounded-lg text-xs transition">
+                依座號順序
+              </button>
+              <button @click="analyticsSortBy = 'missing'"
+                      :class="analyticsSortBy === 'missing' ? 'bg-rose-600 text-white font-black' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'"
+                      class="px-3 py-1 rounded-lg text-xs transition">
+                依未交數量 (高→低)
+              </button>
+            </div>
+          </div>
+
+          <!-- 4 大核心統計指標卡片 -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 text-center">
+              <div class="text-xs text-slate-400 font-bold">已記錄上課天數</div>
+              <div class="text-2xl font-black text-cyan-400 mt-0.5">{{ analyticsOverview.totalDays }} 天</div>
+              <div class="text-[11px] text-slate-500">累計 {{ analyticsOverview.totalTasks }} 項作業</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 text-center">
+              <div class="text-xs text-slate-400 font-bold">全班平均繳交率</div>
+              <div class="text-2xl font-black text-emerald-400 mt-0.5">{{ analyticsOverview.avgSubmitRate }}%</div>
+              <div class="text-[11px] text-slate-500">應交總計 {{ analyticsOverview.totalExpected }} 人次</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 text-center">
+              <div class="text-xs text-slate-400 font-bold">期間累計未交總計</div>
+              <div class="text-2xl font-black text-rose-400 mt-0.5">{{ analyticsOverview.totalMissing }} 人次</div>
+              <div class="text-[11px] text-slate-500">涉及 {{ analyticsOverview.studentsWithMissing }} 位同學</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 text-center">
+              <div class="text-xs text-slate-400 font-bold">100% 零缺交模範生</div>
+              <div class="text-2xl font-black text-amber-400 mt-0.5">{{ analyticsOverview.perfectStudentsCount }} 人</div>
+              <div class="text-[11px] text-slate-500">期間內作業全數準時完成</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. 全班個人累計統計與欠交追蹤總表 -->
+        <div class="bg-slate-800/75 border border-slate-700/80 rounded-3xl p-5 shadow-xl overflow-x-auto">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-700/70">
+            <h3 class="text-lg font-black text-white flex items-center gap-2">
+              <span>📋 全班學生個人作業統計與歷史欠交追蹤表</span>
+            </h3>
+            <span class="text-xs text-amber-300 font-bold">
+              💡 點擊「🔍 個人履歷 / 家長通知」可查看該生每日明細並一鍵複製家長 LINE 訊息
+            </span>
+          </div>
+
+          <table class="w-full text-left text-xs sm:text-sm border-collapse min-w-[780px]">
+            <thead>
+              <tr class="border-b border-slate-700 text-slate-400 uppercase tracking-wider">
+                <th class="py-3 px-3 font-bold w-20 text-center">座號</th>
+                <th class="py-3 px-3 font-bold text-center w-24">應交項次</th>
+                <th class="py-3 px-3 font-bold text-center w-24">已交項次</th>
+                <th class="py-3 px-3 font-bold text-center w-24">尚欠項次</th>
+                <th class="py-3 px-3 font-bold text-center w-20">請假天數</th>
+                <th class="py-3 px-3 font-bold text-center w-20">任組長</th>
+                <th class="py-3 px-3 font-bold w-40">累計繳交率</th>
+                <th class="py-3 px-3 font-bold">目前尚未補交作業明細（點擊可直接補交）</th>
+                <th class="py-3 px-3 font-bold text-center w-32">個人履歷</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+              <tr v-for="stat in sortedStudentAnalytics" :key="stat.seat"
+                  :class="stat.missingCount > 0 ? 'bg-rose-950/15 hover:bg-rose-950/30' : 'hover:bg-slate-800/50'"
+                  class="transition">
+                
+                <!-- 座號 -->
+                <td class="py-3 px-3 font-black text-center">
+                  <button @click="openStudentHistoryModal(stat.seat)"
+                          :class="stat.missingCount > 0 ? 'bg-rose-600 text-white' : 'bg-slate-700 text-emerald-300'"
+                          class="w-9 h-9 rounded-xl font-black text-sm flex items-center justify-center mx-auto shadow hover:scale-105 transition cursor-pointer">
+                    {{ stat.seat }}
+                  </button>
+                </td>
+
+                <!-- 應交 -->
+                <td class="py-3 px-3 text-center font-mono text-slate-300 font-bold">
+                  {{ stat.expectedCount }}
+                </td>
+
+                <!-- 已交 -->
+                <td class="py-3 px-3 text-center font-mono text-emerald-400 font-black">
+                  {{ stat.submittedCount }}
+                </td>
+
+                <!-- 尚欠 -->
+                <td class="py-3 px-3 text-center">
+                  <span v-if="stat.missingCount === 0" class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold">
+                    0
+                  </span>
+                  <span v-else class="px-2.5 py-0.5 rounded-full bg-rose-500 text-white text-xs font-black shadow">
+                    欠 {{ stat.missingCount }}
+                  </span>
+                </td>
+
+                <!-- 請假天數 -->
+                <td class="py-3 px-3 text-center font-mono text-amber-300">
+                  {{ stat.absentDays > 0 ? stat.absentDays + ' 天' : '-' }}
+                </td>
+
+                <!-- 任組長次數 (方便加扣分參考) -->
+                <td class="py-3 px-3 text-center">
+                  <span v-if="stat.leaderCount > 0"
+                        :title="stat.leaderWeeksText"
+                        class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black cursor-help">
+                    👑 {{ stat.leaderCount }} 次
+                  </span>
+                  <span v-else class="text-slate-600 text-xs">-</span>
+                </td>
+
+                <!-- 繳交率進度條 -->
+                <td class="py-3 px-3">
+                  <div class="flex items-center gap-2">
+                    <div class="w-24 bg-slate-700 rounded-full h-2 overflow-hidden flex-shrink-0">
+                      <div :class="stat.submitRate === 100 ? 'bg-emerald-400' : (stat.submitRate >= 80 ? 'bg-cyan-400' : 'bg-rose-500')"
+                           class="h-full rounded-full transition-all"
+                           :style="{ width: stat.submitRate + '%' }"></div>
+                    </div>
+                    <span :class="stat.submitRate === 100 ? 'text-emerald-400' : (stat.submitRate >= 80 ? 'text-cyan-300' : 'text-rose-400')"
+                          class="font-mono font-black text-xs">
+                      {{ stat.submitRate }}%
+                    </span>
+                  </div>
+                </td>
+
+                <!-- 尚未補交明細標籤 -->
+                <td class="py-2.5 px-3">
+                  <span v-if="stat.missingItems.length === 0" class="text-xs text-emerald-400/90 font-bold">
+                    ✨ 全數準時繳齊
+                  </span>
+                  <div v-else class="flex flex-wrap gap-1.5">
+                    <span v-for="(item, iIdx) in stat.missingItems" :key="iIdx"
+                          @click="clearSpecificDebt(item.iso, item.hwId, stat.seat)"
+                          class="px-2 py-0.5 rounded-lg bg-rose-500/20 hover:bg-emerald-600/40 text-rose-200 hover:text-emerald-200 border border-rose-500/40 text-xs font-bold cursor-pointer transition flex items-center gap-1"
+                          title="點擊即可標記為已補交">
+                      <span>{{ item.shortDate }} {{ item.hwTitle }}</span>
+                      <span class="text-[10px] opacity-75">✔</span>
+                    </span>
+                  </div>
+                </td>
+
+                <!-- 開啟個人履歷按鈕 -->
+                <td class="py-3 px-3 text-center">
+                  <button @click="openStudentHistoryModal(stat.seat)"
+                          class="px-2.5 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600 text-indigo-200 hover:text-white border border-indigo-500/40 text-xs font-bold transition whitespace-nowrap cursor-pointer">
+                    🔍 履歷 / 通知
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 3. 每日歷史紀錄快速查閱清單 -->
+        <div class="bg-slate-800/75 border border-slate-700/80 rounded-3xl p-5 shadow-xl">
+          <h3 class="text-lg font-black text-white mb-3 flex items-center gap-2">
+            <span>🗓️ 歷史每日作業登記存檔一覽（共 {{ analyticsDailyHistory.length }} 筆有效日期紀錄）</span>
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div v-for="dayLog in analyticsDailyHistory" :key="dayLog.iso"
+                 class="bg-slate-900/80 border border-slate-700/80 rounded-2xl p-3.5 flex flex-col justify-between gap-2 hover:border-indigo-500/50 transition">
+              <div>
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-mono font-black text-sm text-indigo-300">{{ dayLog.iso }}</span>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-bold">{{ dayLog.weekdayName }}</span>
+                    <span v-if="dayLog.isLocked" class="text-xs" title="已鎖定">🔒</span>
+                  </div>
+                  <button @click="jumpToHistoricalDate(dayLog.iso)"
+                          class="text-xs text-cyan-400 hover:underline font-bold cursor-pointer">
+                    前往該日看板 →
+                  </button>
+                </div>
+
+                <!-- 該日各科缺交摘要 -->
+                <div class="flex flex-col gap-1">
+                  <div v-for="hw in dayLog.hwSummary" :key="hw.id" class="text-xs flex items-center justify-between gap-2">
+                    <span class="text-slate-200 font-bold truncate">• {{ hw.title }}</span>
+                    <span v-if="hw.missingSeats.length === 0" class="text-emerald-400 font-bold whitespace-nowrap text-[11px]">全齊 🎉</span>
+                    <span v-else class="text-rose-400 font-black whitespace-nowrap text-[11px]">
+                      缺 {{ hw.missingSeats.join(', ') }}號
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="dayLog.absentSeats.length > 0" class="text-[11px] text-amber-400 pt-1.5 border-t border-slate-800/80">
+                🩺 請假：{{ dayLog.absentSeats.join(', ') }} 號
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </template>
+
+  </main>
+
+
+  <!-- ================= 彈出視窗 0: 🔍 單一學生歷史作業履歷 & 家長專屬 LINE 通知卡 ================= -->
+  <div v-if="showStudentHistoryModal && selectedStudentProfile" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-slate-800 border border-indigo-500/50 rounded-3xl max-w-2xl w-full p-6 shadow-2xl flex flex-col gap-4 my-auto max-h-[90vh]">
+      
+      <!-- 標題列 -->
+      <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+        <div class="flex items-center gap-3">
+          <div :class="selectedStudentProfile.missingCount > 0 ? 'bg-rose-600' : 'bg-emerald-600'"
+               class="w-11 h-11 rounded-2xl text-white font-black text-xl flex items-center justify-center shadow-lg">
+            {{ selectedStudentProfile.seat }}
+          </div>
+          <div>
+            <h3 class="text-xl font-black text-white flex items-center gap-2">
+              <span>{{ boardConfig.className }} 【{{ formatSeatShort(selectedStudentProfile.seat) }} 同學】個人作業履歷卡</span>
+            </h3>
+            <p class="text-xs text-slate-400">
+              統計範圍：{{ analyticsRangeLabel }}（共 {{ selectedStudentProfile.expectedCount }} 項應交作業）
+            </p>
+          </div>
+        </div>
+        <button @click="showStudentHistoryModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <!-- 個人統計數據小卡 -->
+      <div class="grid grid-cols-4 gap-2.5">
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-2.5 text-center">
+          <div class="text-[11px] text-slate-400 font-bold">應交總數</div>
+          <div class="text-lg font-black text-white">{{ selectedStudentProfile.expectedCount }} 項</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-2.5 text-center">
+          <div class="text-[11px] text-slate-400 font-bold">已交項數</div>
+          <div class="text-lg font-black text-emerald-400">{{ selectedStudentProfile.submittedCount }} 項</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-2.5 text-center">
+          <div class="text-[11px] text-slate-400 font-bold">尚欠項數</div>
+          <div class="text-lg font-black text-rose-400">{{ selectedStudentProfile.missingCount }} 項</div>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-xl p-2.5 text-center">
+          <div class="text-[11px] text-slate-400 font-bold">個人繳交率</div>
+          <div class="text-lg font-black text-cyan-400">{{ selectedStudentProfile.submitRate }}%</div>
+        </div>
+      </div>
+
+      <!-- 尚未補交項目清單 -->
+      <div class="bg-slate-900/80 border border-slate-700/80 rounded-2xl p-4 overflow-y-auto max-h-60">
+        <div class="text-xs font-black text-slate-300 mb-2.5 flex items-center justify-between">
+          <span>⚠️ 目前尚未補交之作業項目（共 {{ selectedStudentProfile.missingItems.length }} 項）：</span>
+          <span v-if="selectedStudentProfile.missingItems.length > 0" class="text-[11px] text-emerald-400">點擊右側按鈕可立即銷帳補交</span>
+        </div>
+
+        <div v-if="selectedStudentProfile.missingItems.length === 0" class="text-center py-6 text-emerald-400 font-black text-base">
+          🎉 太棒了！{{ selectedStudentProfile.seat }} 號同學在統計期間內所有作業皆已準時繳齊！
+        </div>
+
+        <div v-else class="flex flex-col gap-2">
+          <div v-for="(item, idx) in selectedStudentProfile.missingItems" :key="idx"
+               class="bg-slate-950/80 border border-rose-500/40 rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 text-xs sm:text-sm">
+              <span class="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-mono font-bold text-xs">
+                {{ item.iso }} ({{ item.weekdayName }})
+              </span>
+              <span class="font-black text-white">{{ item.hwTitle }}</span>
+            </div>
+            <button @click="clearSpecificDebt(item.iso, item.hwId, selectedStudentProfile.seat)"
+                    class="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition cursor-pointer">
+              ✔ 標記已補交
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 快速切換查看其他座號 -->
+      <div class="flex items-center flex-wrap gap-1 pt-1">
+        <span class="text-[11px] text-slate-400 font-bold mr-1">快速切換座號：</span>
+        <button v-for="s in activeSeats" :key="s"
+                @click="selectedStudentSeat = s"
+                :class="selectedStudentSeat === s ? 'bg-indigo-600 text-white font-black ring-2 ring-cyan-400' : 'bg-slate-900 text-slate-400 hover:bg-slate-700'"
+                class="w-6 h-6 rounded-md text-[11px] transition flex items-center justify-center">
+          {{ s }}
+        </button>
+      </div>
+
+      <!-- 底部操作按鈕：一鍵複製家長專屬 LINE 通知 -->
+      <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-700">
+        <button @click="copySingleStudentParentNotice(selectedStudentProfile)"
+                class="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm transition shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 cursor-pointer">
+          <span>💬 一鍵複製【{{ selectedStudentProfile.seat }} 號家長專屬 LINE 通知】</span>
+        </button>
+        <button @click="showStudentHistoryModal = false"
+                class="py-2.5 px-5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs sm:text-sm transition">
+          關閉
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ================= 彈出視窗 1: 設定今日請假名單 ================= -->
+  <div v-if="showAbsentModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          🩺 設定請假座號（{{ currentDayObject ? currentDayObject.name + ' ' + currentDayObject.shortDate : '' }}）
+        </h3>
+        <button @click="showAbsentModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+      <p class="text-xs text-slate-400">
+        當日請假同學將在該日各作業中自動標註為「請假」，不計入缺交催繳名單中。
+      </p>
+
+      <!-- 全班座號切換按鈕 -->
+      <div class="grid grid-cols-6 sm:grid-cols-7 gap-2 max-h-60 overflow-y-auto p-1">
+        <button v-for="seat in activeSeats" :key="seat"
+                @click="toggleAbsent(seat)"
+                :class="isAbsent(seat) ? 'bg-amber-500 text-slate-950 font-black shadow-lg scale-95' : 'bg-slate-750 hover:bg-slate-700 text-slate-300 font-bold'"
+                class="py-2 rounded-xl border border-slate-700 text-xs sm:text-sm transition">
+          {{ getStudentName(seat) ? seat + ' ' + getStudentName(seat) : seat }}
+        </button>
+      </div>
+
+      <div class="flex items-center justify-between pt-3 border-t border-slate-700 text-xs">
+        <span class="text-slate-400">
+          已選請假：<strong class="text-amber-300">{{ currentAbsentList.length > 0 ? currentAbsentList.join(', ') + ' 號' : '無' }}</strong>
+        </span>
+        <button @click="clearCurrentAbsent" class="text-slate-400 hover:text-rose-400">全部清除</button>
+      </div>
+
+      <button @click="showAbsentModal = false; showToast('已儲存當日請假設定')"
+              class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition shadow-lg shadow-indigo-600/30">
+        完成儲存
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ================= 彈出視窗 2: 管理/編輯作業項目 ================= -->
+  <div v-if="showManageHomeworkModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          📝 編輯作業（{{ currentDayObject ? currentDayObject.name + ' ' + currentDayObject.shortDate : '' }}）
+        </h3>
+        <button @click="showManageHomeworkModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <!-- 新增自訂作業 -->
+      <div class="flex gap-2">
+        <input v-model="newHwTitle" @keyup.enter="addHomework"
+               placeholder="輸入自訂作業名稱 (例如：數課84、85)..."
+               class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" />
+        <button @click="addHomework"
+                class="px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-md">
+          新增
+        </button>
+      </div>
+
+      <!-- 目前作業列表清單 -->
+      <div class="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+        <div v-for="(hw, idx) in currentHomeworkList" :key="hw.id"
+             :class="hw.isFixed ? 'border-amber-600/40 bg-amber-950/20' : 'border-slate-700/60 bg-slate-900/40'"
+             class="flex items-center justify-between p-3 rounded-xl border">
+          <div class="flex items-center gap-2">
+            <span class="w-6 h-6 rounded-lg bg-slate-800 text-slate-400 text-xs flex items-center justify-center font-bold">
+              {{ idx + 1 }}
+            </span>
+            <span v-if="hw.isFixed" class="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+              固定第1項
+            </span>
+            <span class="font-bold text-slate-200 text-sm">{{ hw.title }}</span>
+            <span v-if="isHomeworkLocked(hw.id)" class="text-[11px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold">
+              🔒 已鎖定
+            </span>
+          </div>
+          <span v-if="isHomeworkLocked(hw.id)" class="text-xs text-rose-300/90 px-2 font-bold">🔒 鎖定保護中</span>
+          <button v-else-if="!hw.isFixed" @click="removeHomework(hw.id)" class="text-slate-500 hover:text-rose-400 text-xs font-bold px-2 py-1">
+            刪除
+          </button>
+          <span v-else class="text-xs text-amber-400/80 px-2 font-medium">每日必收</span>
+        </div>
+      </div>
+
+      <button @click="showManageHomeworkModal = false"
+              class="w-full py-3 rounded-2xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition">
+        關閉視窗
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ================= 彈出視窗 3: Padlet 同步中心 ================= -->
+  <div v-if="showSyncOptionsModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          🔄 Padlet 聯絡簿同步中心
+        </h3>
+        <button @click="showSyncOptionsModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <!-- 方案 A: 即時連線 Padlet 自動抓取 -->
+      <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700 flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="font-bold text-sm text-slate-200 flex items-center gap-1.5">
+            <span>🌐 方案一：即時同步 Padlet 聯絡簿（支援 4 碼日期如 1111）</span>
+          </div>
+          <button @click="fetchHomeworkJson(true)"
+                  :disabled="syncStatus === 'syncing'"
+                  class="px-3.5 py-1.5 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-500 text-white transition flex items-center gap-1 shadow-md disabled:opacity-50">
+            <span :class="{'animate-spin': syncStatus === 'syncing'}">🔄</span>
+            <span>{{ syncStatus === 'syncing' ? '同步中...' : '立即從 Padlet 更新' }}</span>
+          </button>
+        </div>
+        <div class="text-xs text-slate-400 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span>最新貼文標題：<strong class="text-indigo-300">{{ padletLatestDate }}</strong></span>
+          <span>•</span>
+          <span>來源：<strong class="text-emerald-300">{{ syncSourceLabel }}</strong></span>
+          <span v-if="boardConfig.padletAutoShift" class="text-cyan-300 font-bold">（✨ 已自動順延至下個上課日收件）</span>
+        </div>
+        <div v-if="detectedWeekBadges.length > 0" class="flex flex-wrap items-center gap-1.5 pt-1">
+          <span class="text-[11px] text-slate-400">本週收件對應：</span>
+          <button v-for="b in detectedWeekBadges" :key="b.iso"
+                  @click="previewPadletPostForDate(b.iso)"
+                  class="text-[11px] px-2 py-0.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/40 text-indigo-200 border border-indigo-500/30 font-bold transition"
+                  title="點擊預覽、調整收件日或套用該日作業">
+            📅 {{ b.label }} ➔ {{ b.targetName }}({{ b.targetShortDate }}) ({{ b.taskCount }}項)
+          </button>
+        </div>
+      </div>
+
+      <!-- 方案 B: 快速貼上 Padlet 聯絡簿內容 -->
+      <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700 flex flex-col gap-3">
+        <div class="font-bold text-sm text-slate-200 flex items-center justify-between">
+          <span>📋 方案二：手動貼上 Padlet 聯絡簿（離線備援極速解析）</span>
+          <span class="text-[11px] text-slate-400 font-bold">離線備援</span>
+        </div>
+        <p class="text-xs text-slate-400">
+          可直接複製 Padlet 上的聯絡簿文字貼在下方，系統會自動辨識並將第一項排為「聯絡簿」：
+        </p>
+        <textarea v-model="pasteContent" rows="3"
+                  placeholder="例如直接貼上：&#10;1. 國L7字形七字詩4、5（七字）&#10;2. 國L7成語七字詩(14字）&#10;3. 數習67、68"
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"></textarea>
+        
+        <div class="flex justify-end gap-2">
+          <button @click="parsePastedText"
+                  class="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-500 text-white transition shadow-md active:scale-95">
+            ✨ 智慧解析並套用至目前分頁
+          </button>
+        </div>
+      </div>
+
+      <button @click="showSyncOptionsModal = false"
+              class="w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition">
+        關閉視窗
+      </button>
+    </div>
+  </div>
+
+
+  <!-- ================= 彈出視窗 4: ☁️ 多台電腦即時同步設定 (Firebase Realtime Sync) ================= -->
+  <div v-if="showCloudSyncModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          <span>☁️ 多台電腦即時同步設定</span>
+        </h3>
+        <button @click="showCloudSyncModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <!-- 目前同步狀態卡片 -->
+      <div :class="isCloudSyncActive ? 'bg-emerald-950/40 border-emerald-500/40' : 'bg-slate-900/80 border-slate-700'"
+           class="p-4 rounded-2xl border flex items-center justify-between">
+        <div>
+          <div class="font-bold text-sm text-white flex items-center gap-2">
+            <span>連線狀態：</span>
+            <span v-if="isCloudSyncActive" class="text-emerald-400 font-black flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              雲端即時連線中 (多裝置毫秒同步)
+            </span>
+            <span v-else class="text-amber-400 font-black">
+              尚未連線 (目前為本地單機儲存)
+            </span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">
+            連線後，講台電腦組長點選未交，您在個人電腦或手機上將「即時同步顯示」。
+          </p>
+        </div>
+        <button v-if="isCloudSyncActive" @click="disconnectFirebase"
+                class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-rose-900/60 text-slate-400 hover:text-rose-300 border border-slate-700 transition">
+          中斷連線
+        </button>
+      </div>
+
+      <!-- Firebase 設定貼上區 -->
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-bold text-slate-300">
+            請貼上 Firebase 設定 JSON（或直接貼入 apiKey 等欄位）：
+          </label>
+          <a href="https://console.firebase.google.com/" target="_blank" class="text-xs text-indigo-400 hover:underline">
+            前往 Firebase 主控台 ↗
+          </a>
+        </div>
+        
+        <textarea v-model="firebaseConfigInput" rows="6"
+                  placeholder='{&#10;  "apiKey": "AIzaSy...",&#10;  "authDomain": "...",&#10;  "databaseURL": "https://...firebaseio.com",&#10;  "projectId": "...",&#10;  "storageBucket": "..."&#10;}'
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-emerald-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"></textarea>
+      </div>
+
+      <!-- 操作按鈕 -->
+      <div class="flex gap-2">
+        <button @click="saveAndConnectFirebase"
+                class="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-1.5">
+          <span>⚡ 儲存並啟用雲端同步</span>
+        </button>
+      </div>
+
+      <div class="text-[11px] text-slate-300 bg-slate-900/60 p-3 rounded-xl border border-slate-700/80 leading-relaxed flex flex-col gap-1.5">
+        <div>💡 <strong>單機模式 vs 雲端同步：</strong>未連線 Firebase 時資料會自動儲存在教室電腦瀏覽器中；若需要「教室電腦＋老師手機／筆電」即時同步，請依免費申請教學建立您自己的 Firebase 並貼上上方設定即可！</div>
+        <div>🧙‍♂️ <a href="wizard.html" target="_blank" class="text-cyan-300 hover:underline font-bold">開啟「一鍵建立精靈 & Firebase 免費申請圖文教學」↗</a></div>
+      </div>
+
+      <button @click="showCloudSyncModal = false"
+              class="w-full py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition">
+        關閉視窗
+      </button>
+    </div>
+  </div>
+
+  <!-- ================= 彈出視窗 5: 偵測到新作業確認對話框 ================= -->
+  <div v-if="showSyncConfirmModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl flex flex-col gap-5">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          ✨ 偵測到 Padlet 最新聯絡簿
+        </h3>
+        <button @click="showSyncConfirmModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <div class="bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-4 flex flex-col gap-3">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div class="text-xs text-indigo-300 font-bold mb-0.5">Padlet 原文貼文標題（出作業日）：</div>
+            <div class="text-lg font-black text-white flex items-center gap-2">
+              <span>📅 {{ detectedPadletPost.title }}</span>
+              <span v-if="detectedPadletPost.assignedIso" class="text-xs px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-mono">
+                {{ detectedPadletPost.assignedIso }} ({{ getWeekdayNameFromIso(detectedPadletPost.assignedIso) }})
+              </span>
+            </div>
+          </div>
+          <div class="text-right">
+            <span v-if="boardConfig.padletAutoShift" class="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold">
+              ✨ 已預設順延 1 個上課日
+            </span>
+          </div>
+        </div>
+
+        <!-- 方案三：連假/彈性手動調整收件日期 -->
+        <div class="pt-3 border-t border-indigo-500/20 flex flex-col gap-2">
+          <label class="text-xs font-bold text-emerald-300 flex items-center justify-between gap-2">
+            <span>🎯 派送至網站「收件檢查日期」（遇連假可在此改派）：</span>
+            <span v-if="detectedPadletPost.targetIso" class="font-mono text-white bg-emerald-600/30 px-2 py-0.5 rounded border border-emerald-500/40">
+              {{ detectedPadletPost.targetIso }} ({{ getWeekdayNameFromIso(detectedPadletPost.targetIso) }})
+            </span>
+          </label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <select v-model="detectedPadletPost.targetIso"
+                    class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-xs sm:text-sm text-white font-bold focus:outline-none focus:border-cyan-400">
+              <option v-for="opt in syncTargetDayOptions" :key="opt.iso" :value="opt.iso">
+                {{ opt.label }}
+              </option>
+            </select>
+            <input type="date" v-model="detectedPadletPost.targetIso"
+                   class="bg-slate-900 border border-slate-600 rounded-xl px-3 py-2 text-xs sm:text-sm text-cyan-300 font-mono font-bold focus:outline-none focus:border-cyan-400"
+                   title="自訂任意收件日期（適用長連假）" />
+          </div>
+          <div v-if="isDayLocked(detectedPadletPost.targetIso)" class="text-[11px] text-rose-300 font-bold bg-rose-950/50 border border-rose-500/40 px-2.5 py-1.5 rounded-lg">
+            🔒 注意：目標日期目前已被導師鎖定，套用前系統會請您輸入認證碼解鎖。
+          </div>
+          <div v-else-if="hasMissingRecordsOnDay(detectedPadletPost.targetIso)" class="text-[11px] text-amber-300 font-bold bg-amber-950/50 border border-amber-500/40 px-2.5 py-1.5 rounded-lg">
+            ⚠️ 提醒：該日已有同學被登記為未交，套用同名作業將會自動保留既有的未交紀錄。
+          </div>
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        已為您解析該日清點項目（第一項固定為「聯絡簿」，並已自動濾除非作業提醒）：
+      </p>
+
+      <!-- 解析出的作業清單勾選 -->
+      <div class="flex flex-col gap-2 max-h-60 overflow-y-auto">
+        <label v-for="(item, idx) in detectedTasks" :key="idx"
+               :class="item.isFixed ? 'border-amber-500/40 bg-amber-950/20' : 'border-slate-700/80 bg-slate-900/60'"
+               class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer hover:bg-slate-900 transition">
+          <input type="checkbox" v-model="item.selected" :disabled="item.isFixed" class="w-5 h-5 rounded accent-indigo-500 cursor-pointer" />
+          <span v-if="item.isFixed" class="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+            第1項固定
+          </span>
+          <span class="text-sm font-bold" :class="item.selected ? 'text-white' : 'text-slate-500 line-through'">
+            {{ item.title }}
+          </span>
+          <span v-if="!item.isHomework && !item.isFixed" class="ml-auto text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400">
+            非作業提醒
+          </span>
+        </label>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <button @click="showSyncConfirmModal = false"
+                class="flex-1 py-3 rounded-2xl bg-slate-700 hover:bg-slate-600 text-white font-bold transition">
+          略過
+        </button>
+        <button @click="applyDetectedHomework"
+                class="flex-1 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-black transition shadow-lg shadow-indigo-600/30">
+          確認套用
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 彈出視窗 6: 🏫 教室需要的工具箱 (Classroom Tools & Direct Links) ================= -->
+  <div v-if="showTeachingToolModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-slate-700 rounded-3xl max-w-xl w-full p-6 shadow-2xl flex flex-col gap-5 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-white flex items-center gap-2">
+          <span>🏫 教室需要的工具箱</span>
+        </h3>
+        <button @click="showTeachingToolModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <!-- 當前主要工具卡片 -->
+      <div class="bg-gradient-to-r from-purple-950/70 to-indigo-950/70 border border-purple-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+        <div class="min-w-0">
+          <div class="text-[11px] font-bold text-purple-300 uppercase tracking-wider mb-0.5">目前頂部按鈕直達網址</div>
+          <div class="text-base font-black text-white truncate">{{ teachingToolName || '教室工具' }}</div>
+          <div class="text-xs text-slate-400 font-mono truncate max-w-md">{{ teachingToolUrl || '尚未設定網址' }}</div>
+        </div>
+        <button @click="openToolUrl(teachingToolUrl)"
+                :disabled="!teachingToolUrl"
+                class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-purple-600/30 whitespace-nowrap transition active:scale-95">
+          <span>🚀 立即開啟網頁</span>
+          <span>↗</span>
+        </button>
+      </div>
+
+      <!-- 快速切換或挑選常用教學平台 -->
+      <div class="flex flex-col gap-2">
+        <div class="text-xs font-bold text-slate-300 flex items-center justify-between">
+          <span>🌟 常用教學與教室工具推薦（點擊開啟或一鍵設為主要工具）</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div v-for="item in defaultTeachingTools" :key="item.url"
+               class="bg-slate-900/80 border border-slate-700/80 rounded-xl p-3 flex items-center justify-between gap-2 hover:border-purple-500/50 transition">
+            <div class="min-w-0">
+              <div class="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                <span>{{ item.icon }}</span>
+                <span class="truncate">{{ item.name }}</span>
+              </div>
+              <div class="text-[10px] text-slate-400 truncate mt-0.5">{{ item.desc }}</div>
+            </div>
+            <div class="flex items-center gap-1 flex-shrink-0">
+              <button @click="openToolUrl(item.url)"
+                      class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] text-cyan-300 font-bold border border-slate-700 transition"
+                      title="在新分頁開啟">
+                開啟 ↗
+              </button>
+              <button @click="setAsPrimaryTool(item)"
+                      class="px-2 py-1 rounded-lg bg-purple-600/30 hover:bg-purple-600/60 text-[11px] text-purple-200 font-bold border border-purple-500/40 transition"
+                      title="填入下方設為主要工具">
+                設預設
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 自訂主要教學工具設定 -->
+      <div class="bg-slate-900/60 border border-slate-700/60 rounded-2xl p-4 flex flex-col gap-3">
+        <div class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+          <span>⚙️ 自訂頂部「教室工具」按鈕網址與行為</span>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="sm:col-span-1">
+            <label class="text-[11px] text-slate-400 block mb-1">工具名稱</label>
+            <input v-model="editToolName" type="text" placeholder="例如：教室需要的工具"
+                   class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-[11px] text-slate-400 block mb-1">工具網址 (URL)</label>
+            <input v-model="editToolUrl" type="url" placeholder="https://..."
+                   class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 font-mono" />
+          </div>
+        </div>
+
+        <!-- 直達選項開關 -->
+        <label class="flex items-center gap-2 cursor-pointer pt-1">
+          <input type="checkbox" v-model="editToolDirect" class="w-4 h-4 rounded accent-purple-500 cursor-pointer" />
+          <span class="text-xs text-slate-300 font-medium">
+            點擊頂端「🏫 教室工具」按鈕時，直接在新分頁開啟此網址（直達模式，不跳此選單）
+          </span>
+        </label>
+      </div>
+
+      <div class="flex gap-3">
+        <button @click="showTeachingToolModal = false"
+                class="flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs transition">
+          關閉
+        </button>
+        <button @click="saveCustomTeachingTool"
+                class="flex-1 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-black text-xs transition shadow-lg shadow-purple-600/30">
+          💾 儲存並同步至雲端
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 彈出視窗 7: 🔒 教師確認鎖定看板對話框 ================= -->
+  <div v-if="showLockConfirmModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-rose-500/40 rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4 animate-scale-up">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-black text-white flex items-center gap-2">
+          <span>🔒 教師鎖定看板確認</span>
+        </h3>
+        <button @click="showLockConfirmModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <div class="bg-rose-950/40 border border-rose-500/30 rounded-2xl p-4 flex items-start gap-3">
+        <span class="text-2xl mt-0.5">🛡️</span>
+        <div>
+          <template v-if="lockActionTarget.type === 'hw'">
+            <div class="text-sm font-black text-rose-200 mb-1">
+              確定要鎖定單項作業【{{ lockActionTarget.hwTitle }}】嗎？
+            </div>
+            <div class="text-xs text-slate-300 leading-relaxed">
+              鎖定後，這項作業的座號點選與作業本身將立即轉為<strong>唯讀保護模式</strong>（無法被同學誤觸修改或刪除），同日其他未鎖定的作業仍可正常點選。<br>
+              <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需由導師輸入專屬認證碼。</span>
+            </div>
+          </template>
+          <template v-else-if="lockActionTarget.type === 'leaders'">
+            <div class="text-sm font-black text-rose-200 mb-1">
+              確定要鎖定本週【{{ lockActionTarget.hwTitle }}】組長簽到欄嗎？
+            </div>
+            <div class="text-xs text-slate-300 leading-relaxed">
+              鎖定後，本週第 1～6 組組長座號欄位將轉為<strong>唯讀保護模式</strong>，學生無法再任意更動，方便老師後續依據紀錄加扣分。<br>
+              <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需由導師輸入專屬認證碼。</span>
+            </div>
+          </template>
+          <template v-else>
+            <div class="text-sm font-black text-rose-200 mb-1">
+              確定要鎖定【{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }}】整日作業看板嗎？
+            </div>
+            <div class="text-xs text-slate-300 leading-relaxed">
+              鎖定後，全班座號點選、作業編輯與請假設定將立即轉為<strong>唯讀保護模式</strong>，防止學生或組長誤觸變更。<br>
+              <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需由導師輸入專屬認證碼。</span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-1">
+        <button @click="showLockConfirmModal = false"
+                class="flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs transition">
+          取消
+        </button>
+        <button @click="confirmLockBoard"
+                class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs transition shadow-lg shadow-rose-600/30 flex items-center justify-center gap-1">
+          <span>🔒 確認鎖定</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 彈出視窗 8: 🔑 教師解鎖認證碼對話框 ================= -->
+  <div v-if="showUnlockAuthModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-800 border border-indigo-500/40 rounded-3xl max-w-md w-full p-6 shadow-2xl flex flex-col gap-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-black text-white flex items-center gap-2">
+          <span>🔑 看板安全解鎖認證</span>
+        </h3>
+        <button @click="showUnlockAuthModal = false" class="text-slate-400 hover:text-white text-2xl font-bold">✕</button>
+      </div>
+
+      <div class="text-xs text-slate-300 leading-relaxed">
+        <template v-if="lockActionTarget.type === 'hw'">
+          作業項目【<strong class="text-rose-300">{{ lockActionTarget.hwTitle }}</strong>】目前處於導師鎖定保護狀態。<br>
+          請輸入教師專屬認證碼以解除此作業鎖定：
+        </template>
+        <template v-else-if="lockActionTarget.type === 'leaders'">
+          本週【<strong class="text-rose-300">{{ lockActionTarget.hwTitle }}</strong>】組長簽到欄目前處於導師鎖定保護狀態。<br>
+          請輸入教師專屬認證碼以解除簽到欄鎖定：
+        </template>
+        <template v-else>
+          【{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }}】作業看板目前處於鎖定保護狀態。<br>
+          請輸入教師專屬認證碼以解除鎖定：
+        </template>
+      </div>
+
+      <div class="relative">
+        <input ref="authInputRef"
+               v-model="authCodeInput"
+               @keydown.enter="submitUnlockAuth"
+               :type="authShowPassword ? 'text' : 'password'"
+               maxlength="10"
+               placeholder="請輸入 6 位數認證碼"
+               class="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-center text-lg tracking-widest text-emerald-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono" />
+        <button @click="authShowPassword = !authShowPassword"
+                type="button"
+                class="absolute right-3 top-3 text-slate-400 hover:text-white text-sm"
+                :title="authShowPassword ? '隱藏密碼' : '顯示密碼'">
+          {{ authShowPassword ? '👁️' : '👁️‍🗨️' }}
+        </button>
+      </div>
+
+      <!-- 錯誤提示 -->
+      <div v-if="authErrorMsg" class="bg-rose-950/60 border border-rose-500/40 rounded-xl p-2.5 text-center text-rose-300 text-xs font-bold animate-pulse">
+        {{ authErrorMsg }}
+      </div>
+
+      <div class="flex gap-3 pt-1">
+        <button @click="showUnlockAuthModal = false"
+                class="flex-1 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs transition">
+          取消
+        </button>
+        <button @click="submitUnlockAuth"
+                class="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-1">
+          <span>🔓 驗證並解鎖</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue;
+
+function parseFirebaseConfigInput(rawText) {
+  if (!rawText) return null;
+  let s = String(rawText).trim();
+  const braceMatch = s.match(/\{[\s\S]*\}/);
+  if (!braceMatch) return null;
+  s = braceMatch[0];
+  try {
+    return JSON.parse(s);
+  } catch (_) {
+    const normalized = s
+      .replace(/\/\*[\s\S]*?\*\/|(?:^|[\s;])\/\/.*$/gm, '')
+      .replace(/([{,]\s*)(['"]?)([a-zA-Z0-9_]+)\2\s*:/g, '$1"$3":')
+      .replace(/,\s*}/g, '}')
+      .replace(/'([^']*)'/g, '"$1"');
+    return JSON.parse(normalized);
+  }
+}
+
+function decodeBoardConfigFromUrl() {
+  try {
+    const hashMatch = (window.location.hash || '').match(/cfg=([^&]+)/);
+    const searchParams = new URLSearchParams(window.location.search || '');
+    const rawParam = hashMatch ? decodeURIComponent(hashMatch[1]) : searchParams.get('cfg');
+    if (rawParam) {
+      const binStr = atob(rawParam);
+      const bytes = Uint8Array.from(binStr, c => c.charCodeAt(0));
+      const jsonStr = new TextDecoder().decode(bytes);
+      return JSON.parse(jsonStr);
+    }
+  } catch (e) {
+    console.warn('解析網址班級設定失敗', e);
+  }
+  return null;
+}
+
+const DEFAULT_BOARD_CONFIG = {
+  roomId: 'demo_class',
+  className: '示範班級',
+  boardTitle: '班級作業佈告欄',
+  icon: '🫧',
+  studentCount: 28,
+  skipSeats: [],
+  studentNames: {},
+  leaderGroupCount: 6,
+  authCode: '123456',
+  fixedHwTitle: '聯絡簿',
+  padletRssUrl: '',
+  padletAutoShift: true,
+  teachingToolName: '教室常用工具',
+  teachingToolUrl: '',
+  teachingToolDirectOpen: false,
+  themeColor: 'indigo',
+  firebaseConfig: null
+};
+
+const RESOLVED_BOARD_CONFIG = (() => {
+  const baked = window.__BAKED_BOARD_CONFIG__;
+  const fromUrl = decodeBoardConfigFromUrl();
+  const raw = baked || fromUrl || {};
+  const merged = { ...DEFAULT_BOARD_CONFIG, ...raw };
+  merged.roomId = String(merged.roomId || 'demo_class').replace(/[^a-zA-Z0-9_-]/g, '_');
+  merged.studentCount = Math.min(45, Math.max(1, parseInt(merged.studentCount, 10) || 28));
+  merged.leaderGroupCount = Math.min(10, Math.max(0, parseInt(merged.leaderGroupCount, 10) || 0));
+  merged.skipSeats = Array.isArray(merged.skipSeats)
+    ? merged.skipSeats.map(n => parseInt(n, 10)).filter(n => !isNaN(n))
+    : [];
+  merged.studentNames = (merged.studentNames && typeof merged.studentNames === 'object') ? merged.studentNames : {};
+  merged.authCode = String(merged.authCode || '123456').trim();
+  merged.fixedHwTitle = String(merged.fixedHwTitle !== undefined ? merged.fixedHwTitle : '聯絡簿').trim();
+  merged.padletAutoShift = merged.padletAutoShift !== false;
+  return merged;
+})();
+
+document.title = `${RESOLVED_BOARD_CONFIG.boardTitle} - ${RESOLVED_BOARD_CONFIG.className} 作業清點系統`;
+
+createApp({
+  setup() {
+    const boardConfig = RESOLVED_BOARD_CONFIG;
+    const ROOM_ID = boardConfig.roomId;
+    const FB_ROOT = `hw_boards/${ROOM_ID}`;
+    const FIXED_HW_TITLE = boardConfig.fixedHwTitle || '聯絡簿';
+
+    const themeAccentClass = computed(() => {
+      const map = {
+        indigo: 'bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 shadow-cyan-500/20',
+        emerald: 'bg-gradient-to-br from-emerald-400 via-teal-500 to-cyan-600 shadow-emerald-500/20',
+        amber: 'bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 shadow-amber-500/20',
+        purple: 'bg-gradient-to-br from-fuchsia-400 via-purple-500 to-indigo-600 shadow-purple-500/20'
+      };
+      return map[boardConfig.themeColor] || map.indigo;
+    });
+
+    // 全班有效座號清單（自動排除轉出／空號跳號）
+    const activeSeats = computed(() => {
+      const skip = new Set(boardConfig.skipSeats || []);
+      const list = [];
+      for (let s = 1; s <= boardConfig.studentCount; s++) {
+        if (!skip.has(s)) list.push(s);
+      }
+      return list;
+    });
+    const totalActiveStudents = computed(() => activeSeats.value.length);
+    const totalExpectedToday = computed(() => Math.max(0, totalActiveStudents.value - currentAbsentList.value.length));
+    const getStudentName = (seat) => (boardConfig.studentNames && boardConfig.studentNames[String(seat)]) ? String(boardConfig.studentNames[String(seat)]) : '';
+    const formatSeatShort = (seat) => {
+      const name = getStudentName(seat);
+      return name ? `${seat} ${name}` : `${seat} 號`;
+    };
+    const isValidSeat = (num) => activeSeats.value.includes(num);
+    // 取得當前真實日期
+    const now = new Date();
+    const getIsoDate = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const date = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${date}`;
+    };
+
+    const todayIso = getIsoDate(now);
+
+    // 週次偏移量 (0 代表本週，-1 代表上一週，1 代表下一週)
+    const weekOffset = ref(0);
+
+    // 計算當前週的週一至週五
+    const weekDays = computed(() => {
+      const targetDate = new Date(now);
+      targetDate.setDate(targetDate.getDate() + (weekOffset.value * 7));
+      
+      const dayOfWeek = targetDate.getDay();
+      const monday = new Date(targetDate);
+      monday.setDate(targetDate.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+
+      const days = [];
+      const names = ['週一', '週二', '週三', '週四', '週五'];
+
+      for (let i = 0; i < 5; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        days.push({
+          name: names[i],
+          iso: getIsoDate(d),
+          shortDate: `${d.getMonth() + 1}/${d.getDate()}`
+        });
+      }
+      return days;
+    });
+
+    const isCurrentWeek = computed(() => weekOffset.value === 0);
+
+    const weekLabel = computed(() => {
+      if (weekDays.value.length < 5) return '';
+      const first = weekDays.value[0];
+      const last = weekDays.value[4];
+      return `${first.shortDate} ~ ${last.shortDate}`;
+    });
+
+    // 當前選取分頁（若週末開啟，預設顯示該週週五）
+    const activeTab = ref(weekDays.value.some(d => d.iso === todayIso) ? todayIso : weekDays.value[4].iso);
+
+    const currentDayObject = computed(() => {
+      return weekDays.value.find(d => d.iso === activeTab.value) || null;
+    });
+
+    const changeWeek = (offset) => {
+      weekOffset.value += offset;
+      if (activeTab.value !== 'summary' && activeTab.value !== 'analytics') {
+        activeTab.value = weekDays.value[0].iso;
+      }
+    };
+
+    const resetToCurrentWeek = () => {
+      weekOffset.value = 0;
+      activeTab.value = weekDays.value.some(d => d.iso === todayIso) ? todayIso : weekDays.value[4].iso;
+    };
+
+    const switchDay = (iso) => {
+      activeTab.value = iso;
+    };
+
+    // 👑 每週組長簽到系統（依設定組數儲存，按每週週一 ISO 儲存）
+    const LEADERS_STORAGE_KEY = `hw_board_leaders_${ROOM_ID}`;
+    const weeklyLeaders = ref({});
+
+    const currentWeekKey = computed(() => {
+      return (weekDays.value && weekDays.value[0]) ? weekDays.value[0].iso : todayIso;
+    });
+
+    const normalizeLeaderEntry = (entry) => {
+      const cnt = Math.max(1, boardConfig.leaderGroupCount || 6);
+      const seats = Array(cnt).fill('');
+      if (entry && entry.seats) {
+        for (let i = 0; i < cnt; i++) {
+          const val = entry.seats[i] !== undefined && entry.seats[i] !== null ? String(entry.seats[i]).trim() : '';
+          seats[i] = val;
+        }
+      }
+      return {
+        seats,
+        isLocked: !!(entry && entry.isLocked)
+      };
+    };
+
+    const currentWeekLeaders = computed(() => {
+      const cnt = Math.max(1, boardConfig.leaderGroupCount || 6);
+      const entry = weeklyLeaders.value[currentWeekKey.value];
+      return entry ? normalizeLeaderEntry(entry).seats : Array(cnt).fill('');
+    });
+
+    const isCurrentWeekLeadersLocked = computed(() => {
+      const entry = weeklyLeaders.value[currentWeekKey.value];
+      return !!(entry && entry.isLocked);
+    });
+
+    const saveLeadersToLocalStorage = () => {
+      localStorage.setItem(LEADERS_STORAGE_KEY, JSON.stringify(weeklyLeaders.value));
+    };
+
+    const syncSingleLeaderSeatToCloud = (weekKey, groupIdx, seatVal) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/weekly_leaders/${weekKey}/seats/${groupIdx}`)
+          .set(seatVal || '')
+          .catch(e => console.warn('雲端更新組長座號失敗', e));
+      }
+    };
+
+    const syncWeekLeadersLockToCloud = (weekKey, isLocked) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/weekly_leaders/${weekKey}/isLocked`)
+          .set(!!isLocked)
+          .catch(e => console.warn('雲端更新組長鎖定狀態失敗', e));
+      }
+    };
+
+    const ensureWeekLeaderEntry = (weekKey) => {
+      const existing = weeklyLeaders.value[weekKey];
+      const normalized = normalizeLeaderEntry(existing);
+      weeklyLeaders.value = {
+        ...weeklyLeaders.value,
+        [weekKey]: normalized
+      };
+      return weeklyLeaders.value[weekKey];
+    };
+
+    const onLeaderSeatInput = (groupIdx, evt) => {
+      const wk = currentWeekKey.value;
+      if (isCurrentWeekLeadersLocked.value) return;
+      const raw = (evt && evt.target) ? evt.target.value : '';
+      const digits = raw.replace(/\D/g, '').slice(0, 2);
+
+      if (digits === '') {
+        const entry = ensureWeekLeaderEntry(wk);
+        entry.seats[groupIdx] = '';
+        saveLeadersToLocalStorage();
+        syncSingleLeaderSeatToCloud(wk, groupIdx, '');
+        return;
+      }
+
+      const num = parseInt(digits, 10);
+      if (num >= 1 && num <= boardConfig.studentCount && (digits.length >= 2 || isValidSeat(num) || num * 10 <= boardConfig.studentCount)) {
+        // 若兩位數直接驗證是否在有效座號內；若一位數且可能是兩位數開頭先允許，失焦時再做精確空號驗證
+        if (digits.length >= 2 && !isValidSeat(num)) {
+          showToast('⚠️ 此座號不存在或為空號，請重新輸入！');
+          const entry = ensureWeekLeaderEntry(wk);
+          if (evt && evt.target) evt.target.value = entry.seats[groupIdx] || '';
+          return;
+        }
+        const cleanVal = String(num);
+        if (evt && evt.target) evt.target.value = cleanVal;
+        const entry = ensureWeekLeaderEntry(wk);
+        entry.seats[groupIdx] = cleanVal;
+        saveLeadersToLocalStorage();
+        syncSingleLeaderSeatToCloud(wk, groupIdx, cleanVal);
+      } else {
+        showToast(`⚠️ 座號請輸入 1 ～ ${boardConfig.studentCount} 號！`);
+        const entry = ensureWeekLeaderEntry(wk);
+        if (evt && evt.target) evt.target.value = entry.seats[groupIdx] || '';
+      }
+    };
+
+    const finalizeLeaderSeat = (groupIdx, evt) => {
+      const wk = currentWeekKey.value;
+      if (isCurrentWeekLeadersLocked.value) return;
+      const raw = (evt && evt.target) ? evt.target.value.trim() : '';
+      const num = parseInt(raw, 10);
+      const cleanVal = (raw !== '' && !isNaN(num) && isValidSeat(num)) ? String(num) : '';
+      if (raw !== '' && cleanVal === '') {
+        showToast('⚠️ 此座號不存在或為空號！');
+      }
+      if (evt && evt.target && evt.target.value !== cleanVal) {
+        evt.target.value = cleanVal;
+      }
+      const entry = ensureWeekLeaderEntry(wk);
+      if (entry.seats[groupIdx] !== cleanVal) {
+        entry.seats[groupIdx] = cleanVal;
+        saveLeadersToLocalStorage();
+        syncSingleLeaderSeatToCloud(wk, groupIdx, cleanVal);
+      }
+    };
+
+    const copyWeeklyLeaders = () => {
+      const seats = currentWeekLeaders.value;
+      const cnt = boardConfig.leaderGroupCount || 6;
+      let text = `👑【${boardConfig.className} 本週組長簽到名單】(${weekLabel.value})\n`;
+      text += `------------------------------------\n`;
+      for (let i = 0; i < cnt; i++) {
+        text += `• 第 ${i + 1} 組：${seats[i] ? formatSeatShort(parseInt(seats[i], 10)) : '（尚未填寫）'}\n`;
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('📋 已複製本週六組組長名單！方便您登記加扣分');
+      }).catch(() => alert(text));
+    };
+
+    const handleLeadersLockToggle = () => {
+      const wk = currentWeekKey.value;
+      if (isCurrentWeekLeadersLocked.value) {
+        openUnlockModal('leaders', wk, '', weekLabel.value);
+      } else {
+        lockActionTarget.value = { type: 'leaders', iso: wk, hwId: '', hwTitle: weekLabel.value };
+        showLockConfirmModal.value = true;
+      }
+    };
+
+    // 視圖狀態
+    const currentView = ref('check');
+    const toastMsg = ref('');
+    const soundEnabled = ref(true);
+
+    // 彈窗狀態
+    const showAbsentModal = ref(false);
+    const showManageHomeworkModal = ref(false);
+    const showSyncOptionsModal = ref(false);
+    const showSyncConfirmModal = ref(false);
+    const showCloudSyncModal = ref(false);
+    const showTeachingToolModal = ref(false);
+    const showLockConfirmModal = ref(false);
+    const showUnlockAuthModal = ref(false);
+    const newHwTitle = ref('');
+    const pasteContent = ref('');
+
+    // 🔒 教師鎖定看板系統 (Teacher Lock Board System - 支援整日鎖定 + 單項作業逐項鎖定)
+    const TEACHER_AUTH_CODE = boardConfig.authCode;
+    const authCodeInput = ref('');
+    const authErrorMsg = ref('');
+    const authShowPassword = ref(false);
+    const authInputRef = ref(null);
+    const lockActionTarget = ref({ type: 'day', iso: '', hwId: '', hwTitle: '' });
+
+    const isCurrentDayLocked = computed(() => {
+      if (!currentDayObject.value) return false;
+      const day = allDaysData.value[currentDayObject.value.iso];
+      return !!(day && day.isLocked);
+    });
+
+    const isDayLocked = (iso) => {
+      const day = allDaysData.value[iso];
+      return !!(day && day.isLocked);
+    };
+
+    const isHomeworkDirectlyLocked = (hwId, iso = null) => {
+      const targetIso = iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
+      const day = allDaysData.value[targetIso];
+      return !!(day && day.lockedHwMap && day.lockedHwMap[hwId]);
+    };
+
+    const isHomeworkLocked = (hwId, iso = null) => {
+      const targetIso = iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
+      return isDayLocked(targetIso) || isHomeworkDirectlyLocked(hwId, targetIso);
+    };
+
+    const hasAnyLockedHomeworkOnDay = (iso) => {
+      const day = allDaysData.value[iso];
+      return !!(day && day.lockedHwMap && Object.values(day.lockedHwMap).some(Boolean));
+    };
+
+    const syncSingleHwLockToCloud = (iso, hwId, isLocked) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/weekly_data/allDaysData/${iso}/lockedHwMap/${hwId}`)
+          .set(isLocked ? true : null)
+          .catch(e => console.warn('雲端更新單項作業鎖定狀態失敗', e));
+      }
+    };
+
+    const handleLockToggleClick = () => {
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+      if (isCurrentDayLocked.value) {
+        openUnlockModal('day', targetIso);
+      } else {
+        lockActionTarget.value = { type: 'day', iso: targetIso, hwId: '', hwTitle: '' };
+        showLockConfirmModal.value = true;
+      }
+    };
+
+    const handleHwLockToggleClick = (hw) => {
+      if (!hw) return;
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+      if (isCurrentDayLocked.value) {
+        openUnlockModal('day', targetIso);
+      } else if (isHomeworkDirectlyLocked(hw.id, targetIso)) {
+        openUnlockModal('hw', targetIso, hw.id, hw.title);
+      } else {
+        lockActionTarget.value = { type: 'hw', iso: targetIso, hwId: hw.id, hwTitle: hw.title };
+        showLockConfirmModal.value = true;
+      }
+    };
+
+    const confirmLockBoard = () => {
+      const target = lockActionTarget.value;
+      if (target.type === 'leaders') {
+        const wk = target.iso || currentWeekKey.value;
+        const entry = ensureWeekLeaderEntry(wk);
+        entry.isLocked = true;
+        saveLeadersToLocalStorage();
+        syncWeekLeadersLockToCloud(wk, true);
+        showLockConfirmModal.value = false;
+        playClickSound('missing');
+        showToast(`🔒 本週（${target.hwTitle || weekLabel.value}）組長簽到欄已鎖定！`);
+        return;
+      }
+
+      const targetIso = target.iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
+      const day = ensureDayData(targetIso);
+
+      if (target.type === 'hw' && target.hwId) {
+        day.lockedHwMap = day.lockedHwMap || {};
+        day.lockedHwMap[target.hwId] = true;
+        syncSingleHwLockToCloud(targetIso, target.hwId, true);
+        saveAllToStorage();
+        showLockConfirmModal.value = false;
+        playClickSound('missing');
+        showToast(`🔒 作業【${target.hwTitle}】已鎖定！需由導師輸入認證碼才能修改或刪除`);
+      } else {
+        day.isLocked = true;
+        syncDayLockToCloud(targetIso, true);
+        saveAllToStorage();
+        showLockConfirmModal.value = false;
+        playClickSound('missing');
+        showToast('🔒 本日作業看板已鎖定！需由導師輸入認證碼才能修改');
+      }
+    };
+
+    const openUnlockModal = (type = 'day', iso = '', hwId = '', hwTitle = '') => {
+      const targetIso = iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
+      lockActionTarget.value = { type, iso: targetIso, hwId, hwTitle };
+      authCodeInput.value = '';
+      authErrorMsg.value = '';
+      authShowPassword.value = false;
+      showUnlockAuthModal.value = true;
+      setTimeout(() => {
+        if (authInputRef.value) {
+          authInputRef.value.focus();
+        }
+      }, 100);
+    };
+
+    const submitUnlockAuth = () => {
+      const inputEl = (authInputRef && authInputRef.value) ? authInputRef.value : document.querySelector("input[placeholder*='認證碼']");
+      const domVal = inputEl ? inputEl.value : '';
+      const code = (domVal || authCodeInput.value || '').trim();
+      authCodeInput.value = code;
+      if (code === TEACHER_AUTH_CODE) {
+        const target = lockActionTarget.value;
+        if (target.type === 'leaders') {
+          const wk = target.iso || currentWeekKey.value;
+          const entry = ensureWeekLeaderEntry(wk);
+          entry.isLocked = false;
+          saveLeadersToLocalStorage();
+          syncWeekLeadersLockToCloud(wk, false);
+          showUnlockAuthModal.value = false;
+          authCodeInput.value = '';
+          authErrorMsg.value = '';
+          playClickSound('complete');
+          showToast(`🔓 認證成功！本週（${target.hwTitle || weekLabel.value}）組長簽到欄已解除鎖定`);
+          return;
+        }
+
+        const targetIso = target.iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
+        const day = ensureDayData(targetIso);
+
+        if (target.type === 'hw' && target.hwId) {
+          if (day.lockedHwMap) {
+            delete day.lockedHwMap[target.hwId];
+          }
+          syncSingleHwLockToCloud(targetIso, target.hwId, false);
+          saveAllToStorage();
+          showUnlockAuthModal.value = false;
+          authCodeInput.value = '';
+          authErrorMsg.value = '';
+          playClickSound('complete');
+          showToast(`🔓 認證成功！作業【${target.hwTitle}】已解除鎖定，可進行點選與編輯`);
+        } else {
+          day.isLocked = false;
+          syncDayLockToCloud(targetIso, false);
+          saveAllToStorage();
+          showUnlockAuthModal.value = false;
+          authCodeInput.value = '';
+          authErrorMsg.value = '';
+          playClickSound('complete');
+          showToast('🔓 認證成功！看板已解除鎖定，可進行點選與編輯');
+        }
+      } else {
+        authErrorMsg.value = '❌ 認證碼錯誤，請重新輸入！';
+        playClickSound('missing');
+      }
+    };
+
+    const handleAbsentClick = () => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，修改請假名單請先解鎖！');
+        openUnlockModal();
+        return;
+      }
+      showAbsentModal.value = true;
+    };
+
+    const handleEditHomeworkClick = () => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，編輯作業項目請先解鎖！');
+        openUnlockModal();
+        return;
+      }
+      showManageHomeworkModal.value = true;
+    };
+
+    const syncDayLockToCloud = (iso, isLocked) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/weekly_data/allDaysData/${iso}/isLocked`)
+          .set(!!isLocked)
+          .catch(e => console.warn('雲端更新鎖定狀態失敗', e));
+      }
+    };
+
+    // 🏫 教室工具管理系統 (依班級設定載入，完全隔離)
+    const DEFAULT_CLASSROOM_TOOL_URL = boardConfig.teachingToolUrl || '';
+    const DEFAULT_CLASSROOM_TOOL_NAME = boardConfig.teachingToolName || '教室常用工具';
+    const TOOL_URL_KEY = `hw_board_tool_url_${ROOM_ID}`;
+    const TOOL_NAME_KEY = `hw_board_tool_name_${ROOM_ID}`;
+    const TOOL_DIRECT_KEY = `hw_board_tool_direct_${ROOM_ID}`;
+
+    const storedToolUrl = localStorage.getItem(TOOL_URL_KEY);
+    const storedToolName = localStorage.getItem(TOOL_NAME_KEY);
+
+    const teachingToolUrl = ref(storedToolUrl !== null ? storedToolUrl : DEFAULT_CLASSROOM_TOOL_URL);
+    const teachingToolName = ref(storedToolName !== null ? storedToolName : DEFAULT_CLASSROOM_TOOL_NAME);
+    const teachingToolDirectOpen = ref(
+      localStorage.getItem(TOOL_DIRECT_KEY) !== null
+        ? localStorage.getItem(TOOL_DIRECT_KEY) !== 'false'
+        : !!boardConfig.teachingToolDirectOpen
+    );
+    
+    // 編輯表單暫存變數
+    const editToolName = ref(teachingToolName.value);
+    const editToolUrl = ref(teachingToolUrl.value);
+    const editToolDirect = ref(teachingToolDirectOpen.value);
+
+    // 常用教室與教學工具推薦清單
+    const defaultTeachingTools = ref([
+      {
+        icon: '🏫',
+        name: '臺南市國小輔導系統',
+        desc: '臺南市國小輔導紀錄線上登記與查閱',
+        url: 'https://assist.tn.edu.tw'
+      },
+      {
+        icon: '📘',
+        name: '教育部因材網',
+        desc: '教育部適性教學數位學習平台',
+        url: 'https://adl.edu.tw'
+      },
+      {
+        icon: '🎯',
+        name: '均一教育平台',
+        desc: '國小數學與自然自主學習影片及練習題',
+        url: 'https://www.junyiacademy.org'
+      },
+      {
+        icon: '🎒',
+        name: 'Google Classroom',
+        desc: '線上課堂作業繳交與教材派送中心',
+        url: 'https://classroom.google.com'
+      }
+    ]);
+
+    const handleTeachingToolClick = () => {
+      if (teachingToolDirectOpen.value && teachingToolUrl.value) {
+        window.open(teachingToolUrl.value, '_blank', 'noopener,noreferrer');
+      } else {
+        openTeachingToolSettings();
+      }
+    };
+
+    const openTeachingToolSettings = () => {
+      editToolName.value = teachingToolName.value;
+      editToolUrl.value = teachingToolUrl.value;
+      editToolDirect.value = teachingToolDirectOpen.value;
+      showTeachingToolModal.value = true;
+    };
+
+    const openToolUrl = (url) => {
+      if (!url) return;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    };
+
+    const setAsPrimaryTool = (tool) => {
+      editToolName.value = tool.name;
+      editToolUrl.value = tool.url;
+      showToast(`已填入「${tool.name}」，點擊下方儲存即可生效！`);
+    };
+
+    const saveCustomTeachingTool = () => {
+      const url = (editToolUrl.value || '').trim();
+      const name = (editToolName.value || '').trim() || '教學工具';
+      if (!url) {
+        alert('請輸入教學工具網址');
+        return;
+      }
+      teachingToolUrl.value = url;
+      teachingToolName.value = name;
+      teachingToolDirectOpen.value = editToolDirect.value;
+
+      localStorage.setItem(TOOL_URL_KEY, url);
+      localStorage.setItem(TOOL_NAME_KEY, name);
+      localStorage.setItem(TOOL_DIRECT_KEY, editToolDirect.value ? 'true' : 'false');
+
+      // ☁️ 即時同步至 Firebase 雲端資料庫（讓多台電腦共用此設定）
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/teaching_tools`).set({
+          url: url,
+          name: name,
+          directOpen: editToolDirect.value,
+          updatedAt: Date.now()
+        }).catch(e => console.warn('雲端同步教學工具設定失敗', e));
+      }
+
+      showToast('✅ 教室工具設定已儲存並同步！');
+      showTeachingToolModal.value = false;
+    };
+
+    // Padlet 解析純函式（支援四碼如 1111、三碼如 929、斜線如 10/30、中文如 11月11日）
+    const PADLET_RSS_URL = boardConfig.padletRssUrl || '';
+    const NON_HOMEWORK_KEYWORDS = ['穿班服', '不用帶作業', '考直笛', '明天考', '下週考', '期中考', '期末考', '月考', '放假', '通知單'];
+
+    const isNonHomeworkText = (text) => {
+      if (!text) return true;
+      return NON_HOMEWORK_KEYWORDS.some(k => text.includes(k));
+    };
+
+    const cleanTaskText = (text) => {
+      if (!text) return '';
+      return text
+        .trim()
+        .replace(/^(?:[-*•]\s+|\d+\s*[\.\、\)]\s*|\(\d+\)\s*|（\d+）\s*)/, '')
+        .trim();
+    };
+
+    const makeStableHwId = (iso, title) => {
+      if (title === '聯絡簿') return 'hw_contact_book';
+      let hash = 0;
+      for (let i = 0; i < title.length; i++) {
+        hash = ((hash << 5) - hash + title.charCodeAt(i)) | 0;
+      }
+      return `hw_${iso.replace(/-/g, '')}_${Math.abs(hash).toString(36)}`;
+    };
+
+    const parsePadletDateTitle = (title, pubDateStr) => {
+      if (!title) return null;
+      const clean = title.trim();
+      let year = new Date().getFullYear();
+      let pubMonth = null;
+      if (pubDateStr) {
+        const dm = pubDateStr.match(/(20\d{2})-(\d{2})-(\d{2})/);
+        if (dm) {
+          year = parseInt(dm[1], 10);
+          pubMonth = parseInt(dm[2], 10);
+        }
+      }
+      let m = null, d = null;
+      let match = clean.match(/^(\d{1,2})[\/\.](\d{1,2})(?:$|[^\d])/);
+      if (match) {
+        m = parseInt(match[1], 10);
+        d = parseInt(match[2], 10);
+      } else {
+        match = clean.match(/^(\d{1,2})月(\d{1,2})日?(?:$|[^\d])/);
+        if (match) {
+          m = parseInt(match[1], 10);
+          d = parseInt(match[2], 10);
+        } else {
+          match = clean.match(/^(\d{2})(\d{2})(?:$|[^\d\/\.\-])/);
+          if (match) {
+            m = parseInt(match[1], 10);
+            d = parseInt(match[2], 10);
+          } else {
+            match = clean.match(/^(\d)(\d{2})(?:$|[^\d\/\.\-])/);
+            if (match) {
+              m = parseInt(match[1], 10);
+              d = parseInt(match[2], 10);
+            }
+          }
+        }
+      }
+      if (!m || !d || m < 1 || m > 12 || d < 1 || d > 31) return null;
+      if (pubMonth === 12 && m === 1) year += 1;
+      else if (pubMonth === 1 && m === 12) year -= 1;
+      const mm = String(m).padStart(2, '0');
+      const dd = String(d).padStart(2, '0');
+      return { iso: `${year}-${mm}-${dd}`, label: clean };
+    };
+
+    // ✅ 方案一：將 Padlet「出作業日」自動順延一個上課日為「收作業日」（週一~四 +1天，週五 +3天，週六 +2天）
+    const shiftToNextSchoolDay = (iso) => {
+      if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+      const parts = iso.split('-');
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const day = d.getDay(); // 0=日, 1=一 ... 5=五, 6=六
+      let addDays = 1;
+      if (day === 5) addDays = 3; // 週五出的作業 ➔ 下週一收
+      else if (day === 6) addDays = 2; // 週六出的作業 ➔ 下週一收
+      d.setDate(d.getDate() + addDays);
+      return getIsoDate(d);
+    };
+
+    // Padlet 同步狀態
+    const syncStatus = ref('idle');
+    const syncSourceLabel = ref('準備同步中');
+    const padletLatestDate = ref('--');
+    const padletPostsMap = ref({});
+    const detectedPadletPost = ref({ title: '', date: '', assignedIso: '', targetIso: '' });
+    const detectedTasks = ref([]);
+
+    const detectedWeekBadges = computed(() => {
+      return weekDays.value
+        .map(d => {
+          const post = padletPostsMap.value[d.iso];
+          if (!post) return null;
+          const hwTasks = (post.tasks || []).filter(t => !isNonHomeworkText(t));
+          return {
+            iso: d.iso,
+            label: post.title,
+            targetName: d.name,
+            targetShortDate: d.shortDate,
+            taskCount: hwTasks.length + 1
+          };
+        })
+        .filter(Boolean);
+    });
+
+    // ✅ 方案三：提供鄰近上課日快速下拉清單（支援連假改派收件日）
+    const syncTargetDayOptions = computed(() => {
+      const baseIso = detectedPadletPost.value.assignedIso || todayIso;
+      const defaultDueIso = shiftToNextSchoolDay(baseIso);
+      const parts = (detectedPadletPost.value.targetIso || todayIso).split('-');
+      const anchor = parts.length === 3
+        ? new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10))
+        : new Date(now);
+      const start = new Date(anchor);
+      start.setDate(start.getDate() - 7);
+
+      const opts = [];
+      const seen = new Set();
+      const wdNames = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+      for (let i = 0; i <= 21; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const wd = d.getDay();
+        if (wd === 0 || wd === 6) continue;
+        const iso = getIsoDate(d);
+        seen.add(iso);
+        const tags = [];
+        if (iso === defaultDueIso) tags.push('預設順延收件日');
+        if (iso === todayIso) tags.push('今日');
+        if (iso === baseIso) tags.push('Padlet原出題日');
+        const suffix = tags.length > 0 ? `【${tags.join(' / ')}】` : '';
+        opts.push({
+          iso,
+          label: `${iso} (${wdNames[wd]}) ${suffix}`.trim()
+        });
+      }
+      if (detectedPadletPost.value.targetIso && !seen.has(detectedPadletPost.value.targetIso)) {
+        const tIso = detectedPadletPost.value.targetIso;
+        opts.unshift({
+          iso: tIso,
+          label: `${tIso} (自訂日期)`
+        });
+      }
+      return opts;
+    });
+
+    const hasMissingRecordsOnDay = (iso) => {
+      if (!iso || !allDaysData.value || !allDaysData.value[iso]) return false;
+      const rec = allDaysData.value[iso].records;
+      return !!(rec && Object.values(rec).some(v => v === 'missing'));
+    };
+
+    // 🌟 全系統每日數據存儲中心 (Key: isoDate)
+    const allDaysData = ref({});
+
+    // 🌟 各班專屬 Firebase 設定（預設為 null 單機模式，或由精靈/教師自行填入）
+    const DEFAULT_FIREBASE_CONFIG = boardConfig.firebaseConfig || null;
+
+    // 🌟 Firebase Realtime Database 跨裝置即時同步引擎
+    let rtdb = null;
+    const isCloudSyncActive = ref(false);
+    const firebaseConfigInput = ref(DEFAULT_FIREBASE_CONFIG ? JSON.stringify(DEFAULT_FIREBASE_CONFIG, null, 2) : '');
+    let isRemoteUpdating = false; // 避免自己更新自己循環觸發
+
+    const initFirebase = (config) => {
+      try {
+        if (!config || !config.apiKey) return;
+        if (!firebase.apps.length) {
+          firebase.initializeApp(config);
+        }
+        rtdb = firebase.database();
+        isCloudSyncActive.value = true;
+
+        // 監聽雲端即時更新 (任何電腦點選，全網即時更新)
+        const cloudRef = rtdb.ref(`${FB_ROOT}/weekly_data`);
+        cloudRef.on('value', (snapshot) => {
+          const val = snapshot.val();
+          if (val && val.allDaysData && Object.keys(val.allDaysData).length > 0) {
+            isRemoteUpdating = true;
+            // 防禦性標準化（防止 Firebase 剝除空陣列 absentStudents: [] 或空物件 records: {}）
+            const normalized = {};
+            for (const [iso, day] of Object.entries(val.allDaysData)) {
+              if (day) {
+                // 保留本地當前在各分頁選取的 activeHwId，不被雲端強制覆蓋換科
+                const localDay = allDaysData.value ? allDaysData.value[iso] : null;
+                const preservedActiveHwId = (localDay && localDay.activeHwId)
+                  ? localDay.activeHwId
+                  : (day.activeHwId || 'hw_contact_book');
+
+                // ✅ 防護增強：若雲端該日僅有單筆 record 尚未寫入 homeworkList，優先保留本地已有的 homeworkList
+                const preservedHwList = (Array.isArray(day.homeworkList) && day.homeworkList.length > 0)
+                  ? day.homeworkList
+                  : ((localDay && Array.isArray(localDay.homeworkList) && localDay.homeworkList.length > 0)
+                      ? localDay.homeworkList
+                      : [{ id: 'hw_contact_book', title: FIXED_HW_TITLE, isFixed: true }]);
+
+                normalized[iso] = {
+                  homeworkList: preservedHwList,
+                  records: (day.records && typeof day.records === 'object') ? day.records : {},
+                  absentStudents: Array.isArray(day.absentStudents) ? day.absentStudents : [],
+                  activeHwId: preservedActiveHwId,
+                  padletSyncedSig: day.padletSyncedSig || (localDay ? localDay.padletSyncedSig || '' : ''),
+                  padletSourceTitle: day.padletSourceTitle || (localDay ? localDay.padletSourceTitle || '' : ''),
+                  manuallyEdited: day.manuallyEdited !== undefined ? !!day.manuallyEdited : !!(localDay && localDay.manuallyEdited),
+                  isLocked: day.isLocked !== undefined ? !!day.isLocked : !!(localDay && localDay.isLocked),
+                  lockedHwMap: (day.lockedHwMap && typeof day.lockedHwMap === 'object') ? day.lockedHwMap : {}
+                };
+              }
+            }
+            // ✅ Bug8 修復：合併本地與雲端資料（雲端優先），防止切週/其他裝置覆蓋未同步的本地週資料
+            const localDaysData = allDaysData.value || {};
+            const merged = { ...localDaysData };
+            for (const [iso, dayData] of Object.entries(normalized)) {
+              merged[iso] = dayData;
+            }
+            allDaysData.value = merged;
+            localStorage.setItem(storageKey, JSON.stringify({
+              allDaysData: merged,
+              soundEnabled: soundEnabled.value
+            }));
+            setTimeout(() => {
+              isRemoteUpdating = false;
+            }, 50);
+          } else {
+            // 雲端若尚無資料，將本機已初始化的週資料直接備份至雲端
+            if (allDaysData.value && Object.keys(allDaysData.value).length > 0) {
+              cloudRef.set({
+                allDaysData: allDaysData.value,
+                updatedAt: Date.now()
+              }).catch(e => console.warn('首次初始化雲端失敗', e));
+            }
+          }
+        });
+
+        // 監聽雲端教室工具設定同步
+        const toolRef = rtdb.ref(`${FB_ROOT}/teaching_tools`);
+        toolRef.on('value', (snap) => {
+          const val = snap.val();
+          if (val && val.url) {
+            teachingToolUrl.value = val.url;
+            if (val.name) teachingToolName.value = val.name;
+            if (val.directOpen !== undefined) teachingToolDirectOpen.value = val.directOpen;
+            localStorage.setItem(TOOL_URL_KEY, val.url);
+            if (val.name) localStorage.setItem(TOOL_NAME_KEY, val.name);
+            if (val.directOpen !== undefined) localStorage.setItem(TOOL_DIRECT_KEY, val.directOpen ? 'true' : 'false');
+          } else if (DEFAULT_CLASSROOM_TOOL_URL) {
+            toolRef.set({
+              url: DEFAULT_CLASSROOM_TOOL_URL,
+              name: DEFAULT_CLASSROOM_TOOL_NAME,
+              directOpen: !!boardConfig.teachingToolDirectOpen,
+              updatedAt: Date.now()
+            }).catch(e => console.warn('雲端更新教室工具失敗', e));
+          }
+        });
+
+        // 👑 監聽雲端「每週組長簽到」即時同步
+        const leadersRef = rtdb.ref(`${FB_ROOT}/weekly_leaders`);
+        leadersRef.on('value', (snap) => {
+          const val = snap.val();
+          if (val && typeof val === 'object') {
+            const nextMap = { ...(weeklyLeaders.value || {}) };
+            for (const [wk, entry] of Object.entries(val)) {
+              if (entry) {
+                nextMap[wk] = normalizeLeaderEntry(entry);
+              }
+            }
+            weeklyLeaders.value = nextMap;
+            saveLeadersToLocalStorage();
+          } else if (weeklyLeaders.value && Object.keys(weeklyLeaders.value).length > 0) {
+            leadersRef.set(weeklyLeaders.value).catch(e => console.warn('首次同步組長名單失敗', e));
+          }
+        });
+
+        showToast('☁️ 雲端即時同步已連線！多台電腦可即時查看');
+      } catch (err) {
+        console.error('Firebase 連線失敗', err);
+        isCloudSyncActive.value = false;
+      }
+    };
+
+    const FB_DISABLED_KEY = `hw_board_fb_disabled_${ROOM_ID}`;
+    const FB_CONFIG_KEY = `hw_board_fb_config_${ROOM_ID}`;
+
+    const disconnectFirebase = () => {
+      if (rtdb) {
+        rtdb.ref(`${FB_ROOT}/weekly_data`).off();
+        rtdb.ref(`${FB_ROOT}/teaching_tools`).off();
+        rtdb.ref(`${FB_ROOT}/weekly_leaders`).off();
+      }
+      rtdb = null;
+      isCloudSyncActive.value = false;
+      localStorage.setItem(FB_DISABLED_KEY, 'true');
+      showToast('已切換回本地單機模式');
+    };
+
+    const saveAndConnectFirebase = () => {
+      const text = firebaseConfigInput.value.trim();
+      if (!text) {
+        alert('請先貼上 Firebase 設定 JSON（或從 Firebase 複製的 firebaseConfig 程式碼）');
+        return;
+      }
+      try {
+        const configObj = parseFirebaseConfigInput(text);
+        if (!configObj || !configObj.apiKey || !configObj.databaseURL) {
+          throw new Error('缺少 apiKey 或 databaseURL');
+        }
+        localStorage.removeItem(FB_DISABLED_KEY);
+        localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(configObj));
+        initFirebase(configObj);
+        showCloudSyncModal.value = false;
+      } catch (e) {
+        alert('Firebase 設定格式不正確，請確認有包含 apiKey 與 databaseURL 欄位');
+      }
+    };
+
+    // 輔助函式：確保某天的數據結構存在（防禦性補齊，保證陣列與物件完整無虞）
+    const ensureDayData = (iso) => {
+      if (!allDaysData.value[iso]) {
+        allDaysData.value[iso] = {
+          homeworkList: [
+            { id: 'hw_contact_book', title: FIXED_HW_TITLE, isFixed: true }
+          ],
+          records: {},
+          absentStudents: [],
+          activeHwId: 'hw_contact_book',
+          padletSyncedSig: '',
+          padletSourceTitle: '',
+          manuallyEdited: false,
+          isLocked: false,
+          lockedHwMap: {}
+        };
+      }
+      const day = allDaysData.value[iso];
+      if (!day.homeworkList || !Array.isArray(day.homeworkList) || day.homeworkList.length === 0) {
+        day.homeworkList = [{ id: 'hw_contact_book', title: FIXED_HW_TITLE, isFixed: true }];
+      }
+      if (!day.records || typeof day.records !== 'object') {
+        day.records = {};
+      }
+      if (!day.absentStudents || !Array.isArray(day.absentStudents)) {
+        day.absentStudents = [];
+      }
+      if (!day.activeHwId) {
+        day.activeHwId = day.homeworkList[0]?.id || 'hw_contact_book';
+      }
+      if (day.isLocked === undefined) {
+        day.isLocked = false;
+      }
+      if (!day.lockedHwMap || typeof day.lockedHwMap !== 'object') {
+        day.lockedHwMap = {};
+      }
+      return day;
+    };
+
+    const currentActiveDayData = computed(() => {
+      if (!currentDayObject.value) return null;
+      return ensureDayData(currentDayObject.value.iso);
+    });
+
+    const currentHomeworkList = computed(() => {
+      return (currentActiveDayData.value && Array.isArray(currentActiveDayData.value.homeworkList))
+        ? currentActiveDayData.value.homeworkList
+        : [];
+    });
+
+    const currentAbsentList = computed(() => {
+      return (currentActiveDayData.value && Array.isArray(currentActiveDayData.value.absentStudents))
+        ? currentActiveDayData.value.absentStudents
+        : [];
+    });
+
+    const currentDayPadletSource = computed(() => {
+      if (!currentDayObject.value) return '';
+      const iso = currentDayObject.value.iso;
+      if (currentActiveDayData.value && currentActiveDayData.value.padletSourceTitle) {
+        return currentActiveDayData.value.padletSourceTitle;
+      }
+      return padletPostsMap.value[iso] ? padletPostsMap.value[iso].title : '';
+    });
+
+    // 細粒度雲端同步函式：精準更新單一節點，避免整包覆蓋導致競態覆寫或未交被消除
+    const syncSingleRecordToCloud = (iso, key, status) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/weekly_data/allDaysData/${iso}/records/${key}`)
+          .set(status)
+          .catch(e => console.warn('雲端更新單一紀錄失敗', e));
+      }
+    };
+
+    const syncDayRecordsToCloud = (iso, recordsObj) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/weekly_data/allDaysData/${iso}/records`)
+          .set(recordsObj || {})
+          .catch(e => console.warn('雲端更新當日紀錄失敗', e));
+      }
+    };
+
+    const syncDayAbsentToCloud = (iso, absentArray) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/weekly_data/allDaysData/${iso}/absentStudents`)
+          .set(absentArray || [])
+          .catch(e => console.warn('雲端更新請假名單失敗', e));
+      }
+    };
+
+    // ✅ 細粒度同步：僅更新單日作業列表，不影響 records
+    const syncDayHomeworkListToCloud = (iso, homeworkList) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/weekly_data/allDaysData/${iso}/homeworkList`)
+          .set(homeworkList || [{ id: 'hw_contact_book', title: FIXED_HW_TITLE, isFixed: true }])
+          .catch(e => console.warn('雲端更新作業列表失敗', e));
+      }
+    };
+
+    // ✅ 細粒度同步：僅更新單日的 manuallyEdited、padletSyncedSig 與來源貼文標題
+    const syncDayMetaToCloud = (iso, manuallyEdited, padletSyncedSig, padletSourceTitle) => {
+      if (rtdb && isCloudSyncActive.value) {
+        const updatePayload = {
+          manuallyEdited: !!manuallyEdited,
+          padletSyncedSig: padletSyncedSig || ''
+        };
+        if (padletSourceTitle !== undefined) {
+          updatePayload.padletSourceTitle = padletSourceTitle || '';
+        }
+        rtdb.ref(`${FB_ROOT}/weekly_data/allDaysData/${iso}`).update(updatePayload)
+          .catch(e => console.warn('雲端更新作業狀態旗標失敗', e));
+      }
+    };
+
+    const activeHwId = computed({
+      get() {
+        if (!currentActiveDayData.value) return 'hw_contact_book';
+        return currentActiveDayData.value.activeHwId || (currentHomeworkList.value[0]?.id || 'hw_contact_book');
+      },
+      set(val) {
+        if (currentActiveDayData.value) {
+          currentActiveDayData.value.activeHwId = val;
+          // 切換作業屬於本地操作視角，即時持久化至本地即可，避免觸發遠端廣播重設他人畫面
+          localStorage.setItem(storageKey, JSON.stringify({
+            allDaysData: allDaysData.value,
+            soundEnabled: soundEnabled.value
+          }));
+        }
+      }
+    });
+
+    const currentHw = computed(() => {
+      return currentHomeworkList.value.find(h => h.id === activeHwId.value) || currentHomeworkList.value[0];
+    });
+
+    const isAbsent = (seat) => currentAbsentList.value.includes(seat);
+
+    const isStudentAbsentOnDay = (iso, seat) => {
+      const day = allDaysData.value[iso];
+      return day ? day.absentStudents.includes(seat) : false;
+    };
+
+    const toggleAbsent = (seat) => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已被導師鎖定，修改請假請先解鎖！');
+        openUnlockModal();
+        return;
+      }
+      if (!currentActiveDayData.value || !currentDayObject.value) return;
+      const list = currentActiveDayData.value.absentStudents;
+      const targetIso = currentDayObject.value.iso;
+      if (list.includes(seat)) {
+        currentActiveDayData.value.absentStudents = list.filter(s => s !== seat);
+      } else {
+        list.push(seat);
+        list.sort((a, b) => a - b);
+      }
+      localStorage.setItem(storageKey, JSON.stringify({
+        allDaysData: allDaysData.value,
+        soundEnabled: soundEnabled.value
+      }));
+      syncDayAbsentToCloud(targetIso, currentActiveDayData.value.absentStudents);
+      playClickSound();
+    };
+
+    const clearCurrentAbsent = () => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已被導師鎖定，清空請假請先解鎖！');
+        openUnlockModal();
+        return;
+      }
+      if (currentActiveDayData.value && currentDayObject.value) {
+        currentActiveDayData.value.absentStudents = [];
+        localStorage.setItem(storageKey, JSON.stringify({
+          allDaysData: allDaysData.value,
+          soundEnabled: soundEnabled.value
+        }));
+        syncDayAbsentToCloud(currentDayObject.value.iso, []);
+      }
+    };
+
+    const getStatus = (hwId, seat) => {
+      if (isAbsent(seat)) return 'absent';
+      if (!currentActiveDayData.value) return 'submitted';
+      const key = `${hwId}_${seat}`;
+      return currentActiveDayData.value.records[key] === 'missing' ? 'missing' : 'submitted';
+    };
+
+    // 切換座號已交 / 缺交 (細粒度即時同步雲端，絕不全包覆蓋)
+    const toggleStudentStatus = (hwId, seat) => {
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，點選座號請先解鎖！');
+        openUnlockModal('day', targetIso);
+        return;
+      }
+      if (isHomeworkDirectlyLocked(hwId, targetIso)) {
+        const hwObj = currentHomeworkList.value.find(h => h.id === hwId);
+        const hwTitle = hwObj ? hwObj.title : '該項作業';
+        showToast(`🔒 【${hwTitle}】已由導師檢核鎖定，修改請先解鎖！`);
+        openUnlockModal('hw', targetIso, hwId, hwTitle);
+        return;
+      }
+      if (isAbsent(seat) || !currentActiveDayData.value || !currentDayObject.value) return;
+      const key = `${hwId}_${seat}`;
+      const rec = currentActiveDayData.value.records;
+      const current = rec[key] === 'missing' ? 'missing' : 'submitted';
+
+      if (current === 'submitted') {
+        rec[key] = 'missing';
+        playClickSound('missing');
+        syncSingleRecordToCloud(targetIso, key, 'missing');
+      } else {
+        rec[key] = 'submitted';
+        playClickSound('click');
+        if (getMissingCount(hwId) === 0) {
+          triggerConfetti();
+          playClickSound('complete');
+        }
+        syncSingleRecordToCloud(targetIso, key, 'submitted');
+      }
+
+      // 本機即刻持久化
+      localStorage.setItem(storageKey, JSON.stringify({
+        allDaysData: allDaysData.value,
+        soundEnabled: soundEnabled.value
+      }));
+    };
+
+    const getSeatButtonClass = (hwId, seat) => {
+      if (isAbsent(seat)) {
+        return 'bg-slate-850 border-slate-700/60 text-slate-500 cursor-not-allowed opacity-50';
+      }
+      const st = getStatus(hwId, seat);
+      if (st === 'missing') {
+        return 'bg-rose-600 hover:bg-rose-500 border-rose-400 text-white ring-4 ring-rose-500/30 font-black scale-[0.98] shadow-rose-900/50';
+      }
+      return 'bg-emerald-700/80 hover:bg-emerald-600/90 border-emerald-500/60 text-white font-bold hover:shadow-lg hover:shadow-emerald-950';
+    };
+
+    const getMissingList = (hwId) => {
+      if (!currentActiveDayData.value) return [];
+      const list = [];
+      activeSeats.value.forEach(seat => {
+        if (!isAbsent(seat) && getStatus(hwId, seat) === 'missing') {
+          list.push(seat);
+        }
+      });
+      return list;
+    };
+
+    const getMissingCount = (hwId) => getMissingList(hwId).length;
+
+    const getSubmittedCount = (hwId) => {
+      if (!currentActiveDayData.value) return totalActiveStudents.value;
+      let count = 0;
+      activeSeats.value.forEach(seat => {
+        if (!isAbsent(seat) && getStatus(hwId, seat) === 'submitted') {
+          count++;
+        }
+      });
+      return count;
+    };
+
+    const getSubmitPercentage = (hwId) => {
+      const total = totalActiveStudents.value - currentAbsentList.value.filter(s => isValidSeat(s)).length;
+      if (total <= 0) return 100;
+      return Math.round((getSubmittedCount(hwId) / total) * 100);
+    };
+
+    const markAllSubmitted = (hwId) => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，全班登記請先解鎖！');
+        openUnlockModal();
+        return;
+      }
+      if (!currentActiveDayData.value || !currentDayObject.value) return;
+      const targetIso = currentDayObject.value.iso;
+      const subjectUpdates = {};
+      activeSeats.value.forEach(seat => {
+        const key = `${hwId}_${seat}`;
+        currentActiveDayData.value.records[key] = 'submitted';
+        subjectUpdates[key] = 'submitted';
+      });
+      localStorage.setItem(storageKey, JSON.stringify({
+        allDaysData: allDaysData.value,
+        soundEnabled: soundEnabled.value
+      }));
+      // ✅ 細粒度單科更新：只更新該科目的 26 個座號，絕不覆蓋同日其他科目的未交紀錄
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/weekly_data/allDaysData/${targetIso}/records`)
+          .update(subjectUpdates)
+          .catch(e => console.warn('雲端更新單科全交失敗', e));
+      }
+      triggerConfetti();
+      playClickSound('complete');
+      showToast('已將本科設為「全部已交」');
+    };
+
+    const markAllMissing = (hwId) => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，全班重選請先解鎖！');
+        openUnlockModal();
+        return;
+      }
+      if (!currentActiveDayData.value || !currentDayObject.value) return;
+      if (!confirm('確定要將此作業全部重設為「未繳交」嗎？')) return;
+      const targetIso = currentDayObject.value.iso;
+      const subjectUpdates = {};
+      activeSeats.value.forEach(seat => {
+        if (!isAbsent(seat)) {
+          const key = `${hwId}_${seat}`;
+          currentActiveDayData.value.records[key] = 'missing';
+          subjectUpdates[key] = 'missing';
+        }
+      });
+      localStorage.setItem(storageKey, JSON.stringify({
+        allDaysData: allDaysData.value,
+        soundEnabled: soundEnabled.value
+      }));
+      // ✅ 細粒度單科更新：只更新該科目的座號，絕不覆蓋同日其他科目的紀錄
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`${FB_ROOT}/weekly_data/allDaysData/${targetIso}/records`)
+          .update(subjectUpdates)
+          .catch(e => console.warn('雲端更新單科重選失敗', e));
+      }
+      showToast('已將本科重設');
+    };
+
+    const addHomework = () => {
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，新增作業請先解鎖！');
+        openUnlockModal();
+        return;
+      }
+      const title = newHwTitle.value.trim();
+      if (!title || !currentActiveDayData.value) return;
+      const id = 'hw_' + Date.now();
+      currentActiveDayData.value.homeworkList.push({ id, title, isFixed: false });
+      currentActiveDayData.value.manuallyEdited = true;
+      newHwTitle.value = '';
+      activeHwId.value = id;
+      saveAllToStorage();
+      // ✅ 細粒度同步：只更新本日作業列表，不全量覆蓋
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+      syncDayHomeworkListToCloud(targetIso, currentActiveDayData.value.homeworkList);
+      syncDayMetaToCloud(targetIso, true, currentActiveDayData.value.padletSyncedSig || '');
+      showToast(`已新增作業「${title}」`);
+    };
+
+    const removeHomework = (id) => {
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+      if (isCurrentDayLocked.value) {
+        showToast('🔒 本日看板已由導師鎖定，刪除作業請先解鎖！');
+        openUnlockModal('day', targetIso);
+        return;
+      }
+      if (!currentActiveDayData.value) return;
+      const target = currentActiveDayData.value.homeworkList.find(h => h.id === id);
+      if (isHomeworkDirectlyLocked(id, targetIso)) {
+        const hwTitle = target ? target.title : '該項作業';
+        showToast(`🔒 【${hwTitle}】已由導師檢核鎖定，無法刪除！請先解鎖`);
+        openUnlockModal('hw', targetIso, id, hwTitle);
+        return;
+      }
+      if (target && target.isFixed) {
+        alert(`「${FIXED_HW_TITLE}」為每日固定第一項作業，無法刪除`);
+        return;
+      }
+      if (currentActiveDayData.value.homeworkList.length <= 1) {
+        alert('請至少保留一項作業');
+        return;
+      }
+      currentActiveDayData.value.homeworkList = currentActiveDayData.value.homeworkList.filter(h => h.id !== id);
+      currentActiveDayData.value.manuallyEdited = true;
+      if (activeHwId.value === id) {
+        activeHwId.value = currentActiveDayData.value.homeworkList[0].id;
+      }
+      saveAllToStorage();
+      // ✅ 細粒度同步：只更新本日作業列表
+      syncDayHomeworkListToCloud(targetIso, currentActiveDayData.value.homeworkList);
+      syncDayMetaToCloud(targetIso, true, currentActiveDayData.value.padletSyncedSig || '');
+      showToast('已刪除作業');
+    };
+
+    // ================= 📊 每週統計核心演算法 =================
+    const getDayTaskCount = (iso) => {
+      const day = ensureDayData(iso);
+      return (day && Array.isArray(day.homeworkList)) ? day.homeworkList.length : 0;
+    };
+
+    const getStudentMissingTasksOnDay = (iso, seat) => {
+      const day = ensureDayData(iso);
+      if (!day) return [];
+      if (day.absentStudents && day.absentStudents.includes(seat)) return [];
+      const records = day.records || {};
+      return (day.homeworkList || []).filter(hw => records[`${hw.id}_${seat}`] === 'missing');
+    };
+
+    const getDayMissingCount = (iso) => {
+      const day = ensureDayData(iso);
+      if (!day || !day.homeworkList || day.homeworkList.length === 0) return 0;
+      let count = 0;
+      const absent = day.absentStudents || [];
+      const records = day.records || {};
+      activeSeats.value.forEach(seat => {
+        if (!absent.includes(seat)) {
+          const hasMissing = day.homeworkList.some(hw => records[`${hw.id}_${seat}`] === 'missing');
+          if (hasMissing) count++;
+        }
+      });
+      return count;
+    };
+
+    const getStudentTotalDebt = (seat) => {
+      const list = [];
+      weekDays.value.forEach(day => {
+        const missing = getStudentMissingTasksOnDay(day.iso, seat);
+        missing.forEach(hw => {
+          list.push({
+            dayIso: day.iso,
+            dayName: day.name,
+            dayShortDate: day.shortDate,
+            hwId: hw.id,
+            hwTitle: hw.title
+          });
+        });
+      });
+      return list;
+    };
+
+    const studentsWithDebt = computed(() => {
+      const list = [];
+      activeSeats.value.forEach(seat => {
+        const debtList = getStudentTotalDebt(seat);
+        if (debtList.length > 0) {
+          list.push({ seat, debtList });
+        }
+      });
+      return list;
+    });
+
+    const totalWeeklyMissingCount = computed(() => {
+      let count = 0;
+      activeSeats.value.forEach(seat => {
+        count += getStudentTotalDebt(seat).length;
+      });
+      return count;
+    });
+
+    const cleanStudentsCount = computed(() => totalActiveStudents.value - studentsWithDebt.value.length);
+
+    const hasAnyTasksThisWeek = computed(() => {
+      return weekDays.value.some(day => getDayTaskCount(day.iso) > 0);
+    });
+
+    const clearSpecificDebt = (dayIso, hwId, seat) => {
+      if (isDayLocked(dayIso)) {
+        showToast('🔒 該日看板已被導師鎖定！請先切換至該日解鎖後再補交');
+        return;
+      }
+      if (isHomeworkDirectlyLocked(hwId, dayIso)) {
+        showToast('🔒 該項作業已被導師檢核鎖定！請先切換至該日解鎖後再補交');
+        return;
+      }
+      const day = ensureDayData(dayIso);
+      if (day) {
+        day.records = day.records || {};
+        day.records[`${hwId}_${seat}`] = 'submitted';
+        saveAllToStorage();
+        // ✅ 細粒度同步：單筆 record 更新
+        syncSingleRecordToCloud(dayIso, `${hwId}_${seat}`, 'submitted');
+        playClickSound('click');
+        showToast(`已為 ${seat} 號補交作業！`);
+      }
+    };
+
+    // ================= 📈 教師學期統計後臺 & 個人履歷 & Excel 匯出引擎 =================
+    const analyticsRange = ref('all'); // 'all' | 'month' | 'week'
+    const analyticsSortBy = ref('seat'); // 'seat' | 'missing'
+    const showStudentHistoryModal = ref(false);
+    const selectedStudentSeat = ref(1);
+
+    const getWeekdayNameFromIso = (iso) => {
+      const parts = (iso || '').split('-');
+      if (parts.length !== 3) return '';
+      const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      const map = ['週日', '週一', '週二', '週三', '週四', '週五', '週六'];
+      return map[d.getDay()] || '';
+    };
+
+    const getShortDateFromIso = (iso) => {
+      const parts = (iso || '').split('-');
+      if (parts.length !== 3) return iso;
+      return `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`;
+    };
+
+    // 判定某日是否為「有效已登記上課日」（有排定多項作業、或有缺交/請假/鎖定紀錄、或位於本週且不高於今日）
+    const isActiveSchoolDay = (iso, day) => {
+      if (!day || !iso) return false;
+      const hwCount = Array.isArray(day.homeworkList) ? day.homeworkList.length : 0;
+      const hasRecords = day.records && Object.keys(day.records).length > 0;
+      const hasAbsent = Array.isArray(day.absentStudents) && day.absentStudents.length > 0;
+      if (hwCount > 1 || hasRecords || hasAbsent || day.isLocked || day.manuallyEdited || day.padletSyncedSig) {
+        return true;
+      }
+      // 若為今日或本週已過去的平日且至少有聯絡簿
+      if (iso <= todayIso && hwCount >= 1) {
+        return true;
+      }
+      return false;
+    };
+
+    const analyticsRangeLabel = computed(() => {
+      if (analyticsRange.value === 'week') return `所選週次 (${weekLabel.value})`;
+      if (analyticsRange.value === 'month') return `本月 (${todayIso.slice(0, 7)})`;
+      return '全部歷史紀錄';
+    });
+
+    const analyticsFilteredDays = computed(() => {
+      const allMap = allDaysData.value || {};
+      const currentMonthPrefix = todayIso.slice(0, 7);
+      const weekIsoSet = new Set(weekDays.value.map(d => d.iso));
+
+      return Object.keys(allMap)
+        .filter(iso => {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return false;
+          if (!isActiveSchoolDay(iso, allMap[iso])) return false;
+          if (analyticsRange.value === 'week') return weekIsoSet.has(iso);
+          if (analyticsRange.value === 'month') return iso.startsWith(currentMonthPrefix);
+          return true;
+        })
+        .sort();
+    });
+
+    const studentAnalyticsList = computed(() => {
+      const days = analyticsFilteredDays.value;
+      const allMap = allDaysData.value || {};
+      const leadersMap = weeklyLeaders.value || {};
+      const currentMonthPrefix = todayIso.slice(0, 7);
+      const activeWeekKey = currentWeekKey.value;
+      const result = [];
+
+      // 依統計範圍累計每位座號擔任組長次數
+      const leaderRecordsBySeat = {};
+      Object.keys(leadersMap).sort().forEach(wk => {
+        if (analyticsRange.value === 'week' && wk !== activeWeekKey) return;
+        if (analyticsRange.value === 'month' && !wk.startsWith(currentMonthPrefix)) return;
+        const entry = normalizeLeaderEntry(leadersMap[wk]);
+        entry.seats.forEach((seatStr, idx) => {
+          const sNum = parseInt(seatStr, 10);
+          if (!isNaN(sNum) && isValidSeat(sNum)) {
+            if (!leaderRecordsBySeat[sNum]) leaderRecordsBySeat[sNum] = [];
+            leaderRecordsBySeat[sNum].push(`${getShortDateFromIso(wk)}週(第${idx + 1}組)`);
+          }
+        });
+      });
+
+      activeSeats.value.forEach(seat => {
+        let expectedCount = 0;
+        let missingCount = 0;
+        let absentDays = 0;
+        const missingItems = [];
+
+        days.forEach(iso => {
+          const day = allMap[iso];
+          if (!day) return;
+          const absentList = Array.isArray(day.absentStudents) ? day.absentStudents : [];
+          if (absentList.includes(seat)) {
+            absentDays++;
+            return;
+          }
+          const hwList = Array.isArray(day.homeworkList) ? day.homeworkList : [];
+          const records = day.records || {};
+          hwList.forEach(hw => {
+            expectedCount++;
+            if (records[`${hw.id}_${seat}`] === 'missing') {
+              missingCount++;
+              missingItems.push({
+                iso,
+                shortDate: getShortDateFromIso(iso),
+                weekdayName: getWeekdayNameFromIso(iso),
+                hwId: hw.id,
+                hwTitle: hw.title
+              });
+            }
+          });
+        });
+
+        const submittedCount = Math.max(0, expectedCount - missingCount);
+        const submitRate = expectedCount > 0 ? Math.round((submittedCount / expectedCount) * 100) : 100;
+        const leaderHistory = leaderRecordsBySeat[seat] || [];
+
+        result.push({
+          seat,
+          expectedCount,
+          submittedCount,
+          missingCount,
+          absentDays,
+          submitRate,
+          missingItems,
+          leaderCount: leaderHistory.length,
+          leaderWeeksText: leaderHistory.join('、')
+        });
+      });
+      return result;
+    });
+
+    const sortedStudentAnalytics = computed(() => {
+      const copy = [...studentAnalyticsList.value];
+      if (analyticsSortBy.value === 'missing') {
+        copy.sort((a, b) => (b.missingCount - a.missingCount) || (a.seat - b.seat));
+      } else {
+        copy.sort((a, b) => a.seat - b.seat);
+      }
+      return copy;
+    });
+
+    const analyticsOverview = computed(() => {
+      const days = analyticsFilteredDays.value;
+      const allMap = allDaysData.value || {};
+      let totalTasks = 0;
+      days.forEach(iso => {
+        const hwList = allMap[iso]?.homeworkList;
+        if (Array.isArray(hwList)) totalTasks += hwList.length;
+      });
+
+      let totalExpected = 0;
+      let totalSubmitted = 0;
+      let totalMissing = 0;
+      let studentsWithMissing = 0;
+      let perfectStudentsCount = 0;
+
+      studentAnalyticsList.value.forEach(st => {
+        totalExpected += st.expectedCount;
+        totalSubmitted += st.submittedCount;
+        totalMissing += st.missingCount;
+        if (st.missingCount > 0) studentsWithMissing++;
+        else perfectStudentsCount++;
+      });
+
+      const avgSubmitRate = totalExpected > 0 ? Math.round((totalSubmitted / totalExpected) * 100) : 100;
+
+      return {
+        totalDays: days.length,
+        totalTasks,
+        totalExpected,
+        totalSubmitted,
+        totalMissing,
+        avgSubmitRate,
+        studentsWithMissing,
+        perfectStudentsCount
+      };
+    });
+
+    const analyticsDailyHistory = computed(() => {
+      const days = [...analyticsFilteredDays.value].sort().reverse();
+      const allMap = allDaysData.value || {};
+      return days.map(iso => {
+        const day = allMap[iso] || {};
+        const hwList = Array.isArray(day.homeworkList) ? day.homeworkList : [];
+        const absentSeats = Array.isArray(day.absentStudents) ? day.absentStudents : [];
+        const records = day.records || {};
+
+        const hwSummary = hwList.map(hw => {
+          const missingSeats = [];
+          activeSeats.value.forEach(seat => {
+            if (!absentSeats.includes(seat) && records[`${hw.id}_${seat}`] === 'missing') {
+              missingSeats.push(seat);
+            }
+          });
+          return {
+            id: hw.id,
+            title: hw.title,
+            missingSeats
+          };
+        });
+
+        return {
+          iso,
+          weekdayName: getWeekdayNameFromIso(iso),
+          isLocked: !!day.isLocked,
+          absentSeats,
+          hwSummary
+        };
+      });
+    });
+
+    const selectedStudentProfile = computed(() => {
+      return studentAnalyticsList.value.find(s => s.seat === selectedStudentSeat.value) || studentAnalyticsList.value[0];
+    });
+
+    const openStudentHistoryModal = (seat) => {
+      selectedStudentSeat.value = seat;
+      showStudentHistoryModal.value = true;
+    };
+
+    const jumpToHistoricalDate = (targetIso) => {
+      const parts = targetIso.split('-');
+      if (parts.length === 3) {
+        const targetDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        const currMon = new Date(now);
+        const currDay = currMon.getDay();
+        currMon.setDate(currMon.getDate() - (currDay === 0 ? 6 : currDay - 1));
+        currMon.setHours(0, 0, 0, 0);
+
+        const targetMon = new Date(targetDate);
+        const tDay = targetMon.getDay();
+        targetMon.setDate(targetMon.getDate() - (tDay === 0 ? 6 : tDay - 1));
+        targetMon.setHours(0, 0, 0, 0);
+
+        const diffWeeks = Math.round((targetMon - currMon) / (7 * 24 * 60 * 60 * 1000));
+        weekOffset.value = diffWeeks;
+        activeTab.value = targetIso;
+      }
+    };
+
+    const copySingleStudentParentNotice = (profile) => {
+      if (!profile) return;
+      let text = `💌【${boardConfig.className} 班級作業繳交狀況溫馨通知】\n`;
+      text += `家長您好，以下為貴子弟（${profile.seat} 號同學）於「${analyticsRangeLabel.value}」之作業清點紀錄：\n`;
+      text += `------------------------------------\n`;
+      text += `📊 應交總數：${profile.expectedCount} 項\n`;
+      text += `✅ 已交項數：${profile.submittedCount} 項（繳交率 ${profile.submitRate}%）\n`;
+      if (profile.absentDays > 0) {
+        text += `🩺 請假天數：${profile.absentDays} 天\n`;
+      }
+      if (profile.missingItems.length === 0) {
+        text += `🎉 目前所有作業皆已準時繳齊，表現非常棒！感謝家長的督促與配合！\n`;
+      } else {
+        text += `⚠️ 目前尚有 ${profile.missingItems.length} 項作業待補交：\n`;
+        profile.missingItems.forEach((item, idx) => {
+          text += `  ${idx + 1}. ${item.iso} (${item.weekdayName})：【${item.hwTitle}】\n`;
+        });
+        text += `------------------------------------\n`;
+        text += `再請家長協助叮嚀孩子完成並帶至學校補交，謝謝您的合作！🙏`;
+      }
+
+      navigator.clipboard.writeText(text).then(() => {
+        showToast(`✅ 已複製 ${profile.seat} 號家長專屬 LINE 通知！`);
+      }).catch(() => alert(text));
+    };
+
+    const downloadCsvFile = (filename, csvContent) => {
+      const BOM = '\uFEFF';
+      const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+
+    const escapeCsvField = (val) => {
+      const str = String(val === undefined || val === null ? '' : val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
+    // 匯出 1：全班個人累計統計表 (適合打平時成績與組長加扣分)
+    const exportStudentSummaryCsv = () => {
+      const headers = ['座號', '統計範圍', '應交總項次', '已交項次', '尚欠項次', '請假天數', '繳交率(%)', '擔任組長次數', '擔任組長週次明細', '尚未補交作業明細'];
+      const rows = [headers.map(escapeCsvField).join(',')];
+
+      studentAnalyticsList.value.forEach(st => {
+        const missingDesc = st.missingItems.map(m => `${m.shortDate}(${m.weekdayName}) ${m.hwTitle}`).join('；');
+        const row = [
+          `${st.seat}號`,
+          analyticsRangeLabel.value,
+          st.expectedCount,
+          st.submittedCount,
+          st.missingCount,
+          st.absentDays,
+          `${st.submitRate}%`,
+          st.leaderCount || 0,
+          st.leaderWeeksText || '無',
+          missingDesc || '全數繳齊'
+        ];
+        rows.push(row.map(escapeCsvField).join(','));
+      });
+
+      downloadCsvFile(`${boardConfig.className}_學生作業累計統計表_${todayIso}.csv`, rows.join('\r\n'));
+      showToast('📥 已匯出「全班個人統計表 (Excel CSV)」！');
+    };
+
+    // 匯出 2：每日各科缺交明細總表 (包含 1~26 號逐日逐科狀態)
+    const exportDailyDetailCsv = () => {
+      const seatHeaders = activeSeats.value.map(s => formatSeatShort(s));
+      const headers = ['日期', '星期', '作業項目', '應交人數', '已交人數', '未交人數', '請假座號', '未交座號清單', ...seatHeaders];
+      const rows = [headers.map(escapeCsvField).join(',')];
+
+      const days = [...analyticsFilteredDays.value].sort();
+      const allMap = allDaysData.value || {};
+
+      days.forEach(iso => {
+        const day = allMap[iso];
+        if (!day) return;
+        const weekday = getWeekdayNameFromIso(iso);
+        const absentSeats = Array.isArray(day.absentStudents) ? day.absentStudents : [];
+        const hwList = Array.isArray(day.homeworkList) ? day.homeworkList : [];
+        const records = day.records || {};
+
+        hwList.forEach(hw => {
+          const missingSeats = [];
+          let submitted = 0;
+          const seatStatuses = [];
+
+          activeSeats.value.forEach(s => {
+            if (absentSeats.includes(s)) {
+              seatStatuses.push('請假');
+            } else if (records[`${hw.id}_${s}`] === 'missing') {
+              missingSeats.push(s);
+              seatStatuses.push('未交');
+            } else {
+              submitted++;
+              seatStatuses.push('已交');
+            }
+          });
+
+          const expected = totalActiveStudents.value - absentSeats.filter(x => isValidSeat(x)).length;
+          const row = [
+            iso,
+            weekday,
+            hw.title,
+            expected,
+            submitted,
+            missingSeats.length,
+            absentSeats.length > 0 ? absentSeats.map(x => `${x}號`).join('、') : '無',
+            missingSeats.length > 0 ? missingSeats.map(x => `${x}號`).join('、') : '全齊',
+            ...seatStatuses
+          ];
+          rows.push(row.map(escapeCsvField).join(','));
+        });
+      });
+
+      downloadCsvFile(`${boardConfig.className}_每日各科作業明細總表_${todayIso}.csv`, rows.join('\r\n'));
+      showToast('📋 已匯出「每日各科明細總表 (Excel CSV)」！');
+    };
+
+    // ================= Padlet 即時同步引擎 =================
+    const parseJinaPadletMarkdown = (md) => {
+      if (!md || !md.includes('### [')) return [];
+      const blocks = md.split(/\n(?=### \[)/);
+      const posts = [];
+      for (const block of blocks) {
+        const headMatch = block.match(/^### \[(.*?)\]\((https:\/\/padlet\.com\/[^\)]+)\)\s*([\s\S]*)$/);
+        if (!headMatch) continue;
+        const rawTitle = headMatch[1].trim();
+        const postUrl = headMatch[2].trim();
+        const rest = headMatch[3];
+        const dateMatch = rest.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+UTC)/);
+        const pubDate = dateMatch ? dateMatch[1] : '';
+        const dateInfo = parsePadletDateTitle(rawTitle, pubDate);
+        if (!dateInfo) continue;
+
+        const rawLines = rest.split('\n')
+          .map(l => l.trim())
+          .filter(l =>
+            l &&
+            !l.startsWith('[https://padlet.com/') &&
+            !l.startsWith('![') &&
+            !/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+UTC$/.test(l)
+          );
+
+        const tasks = rawLines
+          .map(l => cleanTaskText(l))
+          .filter(l => l && l !== '聯絡簿');
+
+        posts.push({
+          title: rawTitle,
+          assignedIso: dateInfo.iso,
+          iso: boardConfig.padletAutoShift ? shiftToNextSchoolDay(dateInfo.iso) : dateInfo.iso, // 依設定決定是否順延至下一個上課日收件
+          pubDate,
+          postUrl,
+          tasks
+        });
+      }
+      return posts;
+    };
+
+    const applyTasksToDay = (targetIso, taskTitles, markAsPadletSynced = true, sourceTitle = '') => {
+      const day = ensureDayData(targetIso);
+      const existingByTitle = new Map();
+      (day.homeworkList || []).forEach(hw => {
+        existingByTitle.set(hw.title, hw.id);
+      });
+
+      const finalItems = [
+        { id: 'hw_contact_book', title: FIXED_HW_TITLE, isFixed: true }
+      ];
+      const seenTitles = new Set(['聯絡簿']);
+
+      taskTitles.forEach(title => {
+        if (!title || seenTitles.has(title)) return;
+        seenTitles.add(title);
+        const reusedId = existingByTitle.get(title) || makeStableHwId(targetIso, title);
+        finalItems.push({
+          id: reusedId,
+          title,
+          isFixed: false
+        });
+      });
+
+      // ✅ 單項作業鎖定保護：保留已被導師鎖定的舊作業項目，避免被 Padlet 重同步或貼上覆蓋刪除
+      if (day.lockedHwMap && typeof day.lockedHwMap === 'object') {
+        (day.homeworkList || []).forEach(hw => {
+          if (hw && !hw.isFixed && day.lockedHwMap[hw.id] && !finalItems.some(f => f.id === hw.id)) {
+            finalItems.push(hw);
+          }
+        });
+      }
+
+      // ✅ Bug2 修復：作業 ID 遷移 — 當 Padlet 標題微調造成 ID 改變時，將舊 ID records 搬移至新 ID
+      if (day.records && typeof day.records === 'object') {
+        const oldHomeworkList = day.homeworkList || [];
+        const oldIdByTitle = new Map();
+        oldHomeworkList.forEach(hw => oldIdByTitle.set(hw.title, hw.id));
+
+        const migratedRecords = {};
+        // 先把所有原始 records 複製過來
+        for (const [key, val] of Object.entries(day.records)) {
+          migratedRecords[key] = val;
+        }
+        // 再對每個 finalItem 做 ID 搬移
+        finalItems.forEach(hw => {
+          const oldId = oldIdByTitle.get(hw.title);
+          if (oldId && oldId !== hw.id) {
+            // 把使用舊 ID 的 records 搬到新 ID
+            for (const [key, val] of Object.entries(day.records)) {
+              if (key.startsWith(oldId + '_')) {
+                const seat = key.slice(oldId.length); // e.g. "_3"
+                const newKey = hw.id + seat;
+                migratedRecords[newKey] = val;
+                // 刪除舊 key（如果新舊不同）
+                delete migratedRecords[key];
+              }
+            }
+          }
+        });
+        day.records = migratedRecords;
+      }
+
+      day.homeworkList = finalItems;
+      if (markAsPadletSynced) {
+        day.padletSyncedSig = taskTitles.join('||');
+        day.manuallyEdited = false;
+        if (sourceTitle) {
+          day.padletSourceTitle = sourceTitle;
+        }
+      }
+      if (!finalItems.some(h => h.id === day.activeHwId)) {
+        day.activeHwId = 'hw_contact_book';
+      }
+
+      // ✅ 細粒度同步：僅更新本日 homeworkList，不全量覆蓋
+      syncDayHomeworkListToCloud(targetIso, finalItems);
+      if (markAsPadletSynced) {
+        syncDayMetaToCloud(targetIso, false, taskTitles.join('||'), sourceTitle || day.padletSourceTitle || '');
+      }
+
+      return day;
+    };
+
+    const openConfirmModalForPost = (post) => {
+      if (!post) return;
+      detectedPadletPost.value = {
+        title: post.title || '最新',
+        date: post.pubDate || '',
+        assignedIso: post.assignedIso || '',
+        targetIso: post.iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso)
+      };
+
+      const rawTasks = Array.isArray(post.tasks) ? post.tasks : [];
+      const items = [
+        { title: FIXED_HW_TITLE, isHomework: true, selected: true, isFixed: true }
+      ];
+      rawTasks.forEach(t => {
+        if (t && t !== '聯絡簿') {
+          const isHw = !isNonHomeworkText(t);
+          items.push({
+            title: t,
+            isHomework: isHw,
+            selected: isHw,
+            isFixed: false
+          });
+        }
+      });
+      detectedTasks.value = items;
+    };
+
+    const previewPadletPostForDate = (iso) => {
+      const post = padletPostsMap.value[iso];
+      if (!post) return;
+      openConfirmModalForPost(post);
+      showSyncOptionsModal.value = false;
+      showSyncConfirmModal.value = true;
+    };
+
+    const reconcileWeekWithPadletPosts = (silent = false) => {
+      let changed = false;
+      let latestUpdatedLabel = '';
+
+      weekDays.value.forEach(d => {
+        const post = padletPostsMap.value[d.iso];
+        if (!post) return;
+        const hwTitles = (post.tasks || []).filter(t => !isNonHomeworkText(t));
+        if (hwTitles.length === 0) return;
+
+        const sig = hwTitles.join('||');
+        const day = ensureDayData(d.iso);
+        const currSig = (day.homeworkList || [])
+          .filter(h => !h.isFixed)
+          .map(h => h.title)
+          .join('||');
+
+        if (currSig === sig) {
+          let metaChanged = false;
+          if (day.padletSyncedSig !== sig) {
+            day.padletSyncedSig = sig;
+            metaChanged = true;
+          }
+          if (!day.padletSourceTitle && post.title) {
+            day.padletSourceTitle = post.title;
+            metaChanged = true;
+          }
+          if (metaChanged) {
+            syncDayMetaToCloud(d.iso, !!day.manuallyEdited, sig, day.padletSourceTitle || post.title);
+          }
+          return;
+        }
+
+        const isEmptyDay = (day.homeworkList || []).length <= 1;
+        const isUnmodifiedPadletDay = !day.manuallyEdited && !!day.padletSyncedSig && day.padletSyncedSig !== sig;
+        // ✅ Bug3 修復：有 missing records、整日已鎖定或已有單項作業被導師鎖定的日期，不可被 Padlet 同步覆蓋作業列表
+        const hasRecords = day.records && Object.keys(day.records).some(k => day.records[k] === 'missing');
+        const locked = !!day.isLocked || hasAnyLockedHomeworkOnDay(d.iso);
+
+        if ((isEmptyDay || isUnmodifiedPadletDay) && !hasRecords && !locked) {
+          applyTasksToDay(d.iso, hwTitles, true, post.title);
+          changed = true;
+          latestUpdatedLabel = `${post.title} ➔ ${d.name}(${d.shortDate})收件`;
+        }
+      });
+
+      if (changed) {
+        saveAllToStorage();
+        if (!silent && latestUpdatedLabel) {
+          showToast(`✨ 已自動同步 Padlet【${latestUpdatedLabel}】！`);
+        }
+      }
+    };
+
+    const fetchHomeworkJson = async (manualTrigger = false) => {
+      if (!PADLET_RSS_URL) {
+        syncStatus.value = 'idle';
+        syncSourceLabel.value = '尚未設定 Padlet RSS 網址（可用下方手動貼上）';
+        if (manualTrigger) {
+          showToast('本班尚未設定 Padlet RSS 網址，可直接在下方「方案二：手動貼上」貼入作業！');
+        }
+        return;
+      }
+
+      syncStatus.value = 'syncing';
+      try {
+        const sep = PADLET_RSS_URL.includes('?') ? '&' : '?';
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 12000);
+        const liveUrl = `https://r.jina.ai/${PADLET_RSS_URL}${sep}_t=${Date.now()}`;
+        const res = await fetch(liveUrl, { signal: ctrl.signal, cache: 'no-store' });
+        clearTimeout(timer);
+
+        if (res.ok) {
+          const mdText = await res.text();
+          const posts = parseJinaPadletMarkdown(mdText);
+          if (posts.length > 0) {
+            const map = {};
+            posts.forEach(p => {
+              map[p.iso] = p;
+            });
+            padletPostsMap.value = map;
+
+            const latestPost = posts[posts.length - 1];
+            padletLatestDate.value = latestPost.title;
+            syncSourceLabel.value = 'Padlet 即時連線 ✨';
+
+            reconcileWeekWithPadletPosts(false);
+
+            const targetPost = (activeTab.value !== 'summary' && activeTab.value !== 'analytics' && map[activeTab.value])
+              ? map[activeTab.value]
+              : latestPost;
+            openConfirmModalForPost(targetPost);
+
+            syncStatus.value = 'success';
+            if (manualTrigger) {
+              showSyncConfirmModal.value = true;
+              showSyncOptionsModal.value = false;
+            }
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('即時連線 Padlet 失敗:', e);
+      }
+
+      syncStatus.value = 'error';
+      syncSourceLabel.value = '連線失敗（請用下方手動貼上）';
+      if (manualTrigger) {
+        showToast('無法連線 Padlet，請檢查網址或使用下方「方案二：手動貼上」');
+      }
+    };
+
+    const parsePastedText = () => {
+      const text = pasteContent.value.trim();
+      if (!text) {
+        alert('請先在輸入框貼上 Padlet 聯絡簿內容');
+        return;
+      }
+
+      // 支援多行或同一行內包含多個序號（例如 1. 數重41 2. 數練25 3. 國L7...）
+      const rawChunks = text
+        .split(/(?:\r?\n|(?<=\S)\s+(?=(?:[-*•]\s+|\d+\s*[\.\、\)]|\(\d+\)|（\d+）)))/g)
+        .map(l => cleanTaskText(l))
+        .filter(l => l.length > 0 && l !== '聯絡簿');
+
+      if (rawChunks.length === 0) {
+        alert('無法辨識內容，請確認貼上的文字格式');
+        return;
+      }
+
+      const targetIso = currentDayObject.value ? currentDayObject.value.iso : todayIso;
+      if (isDayLocked(targetIso)) {
+        showToast('🔒 本日看板已由導師鎖定，貼上作業請先解鎖！');
+        showSyncOptionsModal.value = false;
+        openUnlockModal();
+        return;
+      }
+      applyTasksToDay(targetIso, rawChunks, false);
+      const day = ensureDayData(targetIso);
+      day.manuallyEdited = true;
+
+      pasteContent.value = '';
+      saveAllToStorage();
+      // ✅ 細粒度同步：只更新作業列表與旗標，不全量覆蓋
+      syncDayHomeworkListToCloud(targetIso, day.homeworkList);
+      syncDayMetaToCloud(targetIso, true, day.padletSyncedSig || '');
+      showSyncOptionsModal.value = false;
+      showToast('已成功解析並排定作業！');
+      triggerConfetti();
+      playClickSound('complete');
+    };
+
+    const applyDetectedHomework = () => {
+      const selected = detectedTasks.value.filter(t => t.selected);
+      if (selected.length === 0) {
+        alert('請至少勾選一項作業');
+        return;
+      }
+
+      const targetIso = detectedPadletPost.value.targetIso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
+      if (isDayLocked(targetIso)) {
+        showToast('🔒 該日看板已由導師鎖定，套用作業請先解鎖！');
+        showSyncConfirmModal.value = false;
+        openUnlockModal();
+        return;
+      }
+      const titles = selected
+        .map(t => t.title)
+        .filter(t => t && t !== '聯絡簿');
+
+      applyTasksToDay(targetIso, titles, true, detectedPadletPost.value.title);
+
+      if (weekDays.value.some(d => d.iso === targetIso)) {
+        activeTab.value = targetIso;
+      } else {
+        jumpToHistoricalDate(targetIso);
+      }
+
+      saveAllToStorage();
+      // ✅ 細粒度同步：只更新作業列表與旗標
+      const dayAfter = ensureDayData(targetIso);
+      syncDayHomeworkListToCloud(targetIso, dayAfter.homeworkList);
+      syncDayMetaToCloud(targetIso, false, dayAfter.padletSyncedSig || '', detectedPadletPost.value.title || '');
+      showSyncConfirmModal.value = false;
+      showToast(`已成功套用【${detectedPadletPost.value.title}】作業至 ${targetIso} 收件！`);
+      triggerConfetti();
+      playClickSound('complete');
+    };
+
+    const copyReport = () => {
+      if (activeTab.value === 'analytics') {
+        let text = `📢【${boardConfig.className} 學期作業累計缺交清算提醒】(${analyticsRangeLabel.value})\n`;
+        text += `------------------------------------------\n`;
+        const missingStus = studentAnalyticsList.value.filter(s => s.missingCount > 0);
+        if (missingStus.length === 0) {
+          text += `🎉 太棒了！期間內全班所有作業全數繳齊，表現優良！\n`;
+        } else {
+          text += `⚠️ 尚未繳清同學名單（共 ${missingStus.length} 人，累計 ${analyticsOverview.value.totalMissing} 項未交）：\n\n`;
+          missingStus.forEach(stu => {
+            const debts = stu.missingItems.map(d => `${d.shortDate}(${d.weekdayName}) [${d.hwTitle}]`).join('、');
+            text += `• ${stu.seat} 號：${debts} (欠 ${stu.missingCount} 項 / 繳交率 ${stu.submitRate}%)\n`;
+          });
+          text += `------------------------------------------\n`;
+          text += `請尚未繳清的同學盡速完成補交！`;
+        }
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('已複製學期統計未交總清單！');
+        }).catch(() => alert(text));
+        return;
+      }
+
+      if (activeTab.value === 'summary') {
+        let text = `📢【${boardConfig.className} 本週作業未繳清算提醒】(${weekLabel.value})\n`;
+        text += `------------------------------------------\n`;
+        if (studentsWithDebt.value.length === 0) {
+          text += `🎉 太棒了！本週全班所有作業全數繳齊，表現優良！\n`;
+        } else {
+          text += `⚠️ 本週尚未繳清同學名單（共 ${studentsWithDebt.value.length} 人）：\n\n`;
+          studentsWithDebt.value.forEach(stu => {
+            const debts = stu.debtList.map(d => `${d.dayName} [${d.hwTitle}]`).join('、');
+            text += `• ${stu.seat} 號：${debts} (欠 ${stu.debtList.length} 項)\n`;
+          });
+          text += `------------------------------------------\n`;
+          text += `其餘同學本週作業已全數繳齊！\n請尚未繳清的同學務必於放學前完成補交。`;
+        }
+        const leaders = currentWeekLeaders.value;
+        if (leaders.some(s => !!s)) {
+          const leaderSummary = leaders.map((s, idx) => `第${idx + 1}組:${s ? s + '號' : '-'}`).join(' / ');
+          text += `\n👑 本週組長：${leaderSummary}`;
+        }
+
+        navigator.clipboard.writeText(text).then(() => {
+          showToast('已複製本週未交總清單！可直接發送');
+        }).catch(() => alert(text));
+        return;
+      }
+
+      const day = currentDayObject.value;
+      let text = `📢【${boardConfig.className} 今日作業缺交提醒】${day ? day.name + ' (' + day.shortDate + ')' : ''}\n`;
+      text += `------------------------------------\n`;
+      if (currentAbsentList.value.length > 0) {
+        text += `🩺 今日請假：${currentAbsentList.value.join(', ')} 號\n`;
+      }
+      
+      let allClean = true;
+      currentHomeworkList.value.forEach(hw => {
+        const missing = getMissingList(hw.id);
+        const icon = hw.isFixed ? '📕' : '📘';
+        if (missing.length === 0) {
+          text += `✅ ${icon} ${hw.title}：全班到齊 🎉\n`;
+        } else {
+          allClean = false;
+          text += `❌ ${icon} ${hw.title}：缺 ${missing.join(', ')} 號\n`;
+        }
+      });
+      text += `------------------------------------\n`;
+      if (allClean) {
+        text += `🎉 太棒了！今日所有作業全數繳齊！\n`;
+      } else {
+        text += `請以上尚未繳交的同學，盡速於午休前完成並補交！`;
+      }
+
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('已複製未交名單到剪貼簿！可直接貼到 LINE');
+      }).catch(() => alert(text));
+    };
+
+    const playClickSound = (type = 'click') => {
+      if (!soundEnabled.value) return;
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'missing') {
+          osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(180, audioCtx.currentTime + 0.12);
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.12);
+        } else if (type === 'complete') {
+          osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+          osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.08);
+          osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.16);
+          gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.3);
+        } else {
+          osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.08);
+        }
+      } catch (e) {}
+    };
+
+    const triggerConfetti = () => {
+      if (typeof confetti === 'function') {
+        confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+      }
+    };
+
+    const showToast = (msg) => {
+      toastMsg.value = msg;
+      setTimeout(() => { toastMsg.value = ''; }, 3000);
+    };
+
+    // 本地 + 雲端 雙軌儲存引擎
+    const storageKey = `hw_board_data_${ROOM_ID}`;
+    const saveAllToStorage = () => {
+      const payload = {
+        allDaysData: allDaysData.value,
+        soundEnabled: soundEnabled.value
+      };
+      // ✅ 僅儲存至本機；Firebase 同步交由各自的細粒度 sync 函式負責，避免全量 .set() 覆蓋競態
+      localStorage.setItem(storageKey, JSON.stringify(payload));
+    };
+
+    const loadAllFromStorage = () => {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed.allDaysData) allDaysData.value = parsed.allDaysData;
+          if (parsed.soundEnabled !== undefined) soundEnabled.value = parsed.soundEnabled;
+        } catch (e) {
+          console.error('Failed to parse storage', e);
+        }
+      }
+      const savedLeaders = localStorage.getItem(LEADERS_STORAGE_KEY);
+      if (savedLeaders) {
+        try {
+          const parsedLeaders = JSON.parse(savedLeaders);
+          if (parsedLeaders && typeof parsedLeaders === 'object') {
+            weeklyLeaders.value = parsedLeaders;
+          }
+        } catch (e) {
+          console.error('Failed to parse weekly leaders', e);
+        }
+      }
+      weekDays.value.forEach(d => ensureDayData(d.iso));
+
+      // 🌟 跨電腦即時同步自動啟動：
+      // 只要使用者未手動點擊「中斷連線」，任何電腦開啟網頁均自動連線 Firebase 即時資料庫
+      const isManuallyDisabled = localStorage.getItem(FB_DISABLED_KEY) === 'true';
+      if (!isManuallyDisabled) {
+        const savedConfig = localStorage.getItem(FB_CONFIG_KEY);
+        let activeConfig = DEFAULT_FIREBASE_CONFIG;
+        if (savedConfig) {
+          try {
+            activeConfig = JSON.parse(savedConfig);
+          } catch (e) {
+            activeConfig = DEFAULT_FIREBASE_CONFIG;
+          }
+        }
+        if (activeConfig && activeConfig.apiKey && activeConfig.databaseURL) {
+          firebaseConfigInput.value = JSON.stringify(activeConfig, null, 2);
+          initFirebase(activeConfig);
+        }
+      }
+    };
+
+    onMounted(() => {
+      loadAllFromStorage();
+      fetchHomeworkJson(false);
+    });
+
+    return {
+      boardConfig,
+      themeAccentClass,
+      activeSeats,
+      totalActiveStudents,
+      totalExpectedToday,
+      getStudentName,
+      formatSeatShort,
+      now,
+      todayIso,
+      weekDays,
+      weekLabel,
+      isCurrentWeek,
+      weekOffset,
+      changeWeek,
+      resetToCurrentWeek,
+      activeTab,
+      currentDayObject,
+      switchDay,
+      weeklyLeaders,
+      currentWeekKey,
+      currentWeekLeaders,
+      isCurrentWeekLeadersLocked,
+      onLeaderSeatInput,
+      finalizeLeaderSeat,
+      copyWeeklyLeaders,
+      handleLeadersLockToggle,
+      currentView,
+      toastMsg,
+      soundEnabled,
+      showAbsentModal,
+      showManageHomeworkModal,
+      showSyncOptionsModal,
+      showSyncConfirmModal,
+      showCloudSyncModal,
+      showTeachingToolModal,
+      showLockConfirmModal,
+      showUnlockAuthModal,
+      authCodeInput,
+      authErrorMsg,
+      authShowPassword,
+      authInputRef,
+      isCurrentDayLocked,
+      isDayLocked,
+      lockActionTarget,
+      isHomeworkDirectlyLocked,
+      isHomeworkLocked,
+      handleLockToggleClick,
+      handleHwLockToggleClick,
+      confirmLockBoard,
+      openUnlockModal,
+      submitUnlockAuth,
+      handleAbsentClick,
+      handleEditHomeworkClick,
+      teachingToolUrl,
+      teachingToolName,
+      teachingToolDirectOpen,
+      editToolName,
+      editToolUrl,
+      editToolDirect,
+      defaultTeachingTools,
+      handleTeachingToolClick,
+      openTeachingToolSettings,
+      openToolUrl,
+      setAsPrimaryTool,
+      saveCustomTeachingTool,
+      newHwTitle,
+      pasteContent,
+      isCloudSyncActive,
+      firebaseConfigInput,
+      saveAndConnectFirebase,
+      disconnectFirebase,
+      currentHomeworkList,
+      currentAbsentList,
+      currentDayPadletSource,
+      activeHwId,
+      currentHw,
+      syncStatus,
+      syncSourceLabel,
+      padletLatestDate,
+      detectedWeekBadges,
+      syncTargetDayOptions,
+      hasMissingRecordsOnDay,
+      getWeekdayNameFromIso,
+      detectedPadletPost,
+      detectedTasks,
+      isAbsent,
+      isStudentAbsentOnDay,
+      toggleAbsent,
+      clearCurrentAbsent,
+      getStatus,
+      toggleStudentStatus,
+      getSeatButtonClass,
+      getMissingList,
+      getMissingCount,
+      getSubmittedCount,
+      getSubmitPercentage,
+      markAllSubmitted,
+      markAllMissing,
+      addHomework,
+      removeHomework,
+      getDayTaskCount,
+      getDayMissingCount,
+      getStudentMissingTasksOnDay,
+      getStudentTotalDebt,
+      studentsWithDebt,
+      totalWeeklyMissingCount,
+      cleanStudentsCount,
+      hasAnyTasksThisWeek,
+      clearSpecificDebt,
+      analyticsRange,
+      analyticsSortBy,
+      analyticsRangeLabel,
+      analyticsFilteredDays,
+      studentAnalyticsList,
+      sortedStudentAnalytics,
+      analyticsOverview,
+      analyticsDailyHistory,
+      showStudentHistoryModal,
+      selectedStudentSeat,
+      selectedStudentProfile,
+      openStudentHistoryModal,
+      jumpToHistoricalDate,
+      copySingleStudentParentNotice,
+      exportStudentSummaryCsv,
+      exportDailyDetailCsv,
+      fetchHomeworkJson,
+      previewPadletPostForDate,
+      parsePastedText,
+      applyDetectedHomework,
+      copyReport,
+      playClickSound,
+      showToast
+    };
+  }
+}).mount('#app');
+</script>
+
+</body>
+</html>

@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧙‍♂️ 班級作業佈告欄・一鍵建立精靈 (教師分享版)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+    body {
+      font-family: 'Noto Sans TC', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0b1120;
+    }
+    [v-cloak] { display: none; }
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.7); }
+    ::-webkit-scrollbar-thumb { background: rgba(99, 102, 241, 0.4); border-radius: 9999px; }
+  </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col antialiased">
+
+<div id="app" v-cloak class="flex-1 flex flex-col">
+
+  <!-- 頂部導覽列 -->
+  <header class="bg-slate-900/90 border-b border-indigo-900/50 px-4 sm:px-6 py-3 sticky top-0 z-40 backdrop-blur shadow-xl">
+    <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 via-indigo-500 to-purple-600 flex items-center justify-center shadow-lg text-2xl">
+          🧙‍♂️
+        </div>
+        <div>
+          <h1 class="text-lg sm:text-xl font-black text-white tracking-wide flex items-center gap-2">
+            <span>班級作業佈告欄・一鍵建立精靈</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+              免費開源分享版
+            </span>
+          </h1>
+          <p class="text-xs text-slate-400">
+            免寫程式！3 步驟設定班級資料與（選填）自己的 Firebase，立即產出專屬作業清點看板
+          </p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <a href="board.html" target="_blank"
+           class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition">
+          👀 預覽空白示範版 ↗
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Toast 通知 -->
+  <div v-if="toastMsg" class="fixed top-20 right-6 z-50 bg-emerald-500 text-slate-950 font-black px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2 border border-emerald-300">
+    <span>💡</span>
+    <span>{{ toastMsg }}</span>
+  </div>
+
+  <!-- 主內容區 -->
+  <main class="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
+
+    <!-- 特色總覽卡片 -->
+    <section class="bg-gradient-to-r from-indigo-950/70 via-slate-900 to-cyan-950/60 border border-indigo-500/35 rounded-3xl p-5 shadow-xl">
+      <div class="text-sm font-black text-cyan-300 mb-2 flex items-center gap-1.5">
+        <span>✨ 這套作業看板包含哪些功能？</span>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 text-xs">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-2.5">
+          <div class="font-black text-white mb-0.5">📋 同畫面全展開</div>
+          <div class="text-slate-400">當日所有作業卡片並排，免切換科目直接點未交</div>
+        </div>
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-2.5">
+          <div class="font-black text-white mb-0.5">🔒 整日＆逐項鎖定</div>
+          <div class="text-slate-400">導師檢核完可單科鎖定，防學生誤觸或誤刪</div>
+        </div>
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-2.5">
+          <div class="font-black text-white mb-0.5">👑 每週組長簽到</div>
+          <div class="text-slate-400">可設多組組長座號簽到並累計次數，方便加扣分</div>
+        </div>
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-2.5">
+          <div class="font-black text-white mb-0.5">📈 統計與匯出 Excel</div>
+          <div class="text-slate-400">含家長 LINE 通知卡、Padlet 順延同步、CSV 報表</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= STEP 1：班級與學生設定 ================= -->
+    <section class="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
+        <h2 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+          <span class="w-7 h-7 rounded-xl bg-indigo-600 text-white text-sm flex items-center justify-center font-black">1</span>
+          <span>🏫 班級基本資料與學生座號設定</span>
+        </h2>
+        <span class="text-xs text-slate-400">設定完成後可隨時匯出</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">班級簡稱（顯示於報表與統計標題）*</label>
+          <input v-model="form.className" type="text" placeholder="例如：502 陽光班"
+                 class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-bold" />
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">看板主標題（顯示於網頁最上方）*</label>
+          <input v-model="form.boardTitle" type="text" placeholder="例如：502 陽光班 作業佈告欄"
+                 class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-bold" />
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">全班最大座號（1 ~ 45 號）</label>
+          <div class="flex items-center gap-2">
+            <input v-model.number="form.studentCount" type="range" min="1" max="45" class="flex-1 accent-indigo-500" />
+            <input v-model.number="form.studentCount" type="number" min="1" max="45"
+                   class="w-16 bg-slate-950 border border-slate-700 rounded-xl px-2 py-2 text-center text-sm font-black text-cyan-300 font-mono" />
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">轉出／空號跳號（選填，逗號分隔）</label>
+          <input v-model="form.skipSeatsText" type="text" placeholder="例如：4, 15（無空號請留空）"
+                 class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono" />
+          <div class="text-[11px] text-emerald-400 mt-1 font-bold">
+            目前實際清點人數：{{ effectiveSeatCount }} 人
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">每週組長簽到欄組數（0 = 不顯示）</label>
+          <select v-model.number="form.leaderGroupCount"
+                  class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-bold focus:outline-none focus:border-indigo-500">
+            <option :value="0">0 組（不顯示組長簽到欄）</option>
+            <option v-for="n in 10" :key="n" :value="n">分成 {{ n }} 組（顯示 {{ n }} 個組長簽到格）</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="text-xs font-bold text-amber-300 block mb-1">🔐 教師專屬鎖定／解鎖認證碼 *</label>
+          <div class="relative">
+            <input v-model="form.authCode" :type="showAuthCode ? 'text' : 'password'" maxlength="12" placeholder="請自訂 4~10 碼密碼"
+                   class="w-full bg-slate-950 border border-amber-500/40 rounded-xl px-3.5 py-2 text-sm text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400" />
+            <button @click="showAuthCode = !showAuthCode" type="button"
+                    class="absolute right-3 top-2 text-slate-400 hover:text-white text-sm">
+              {{ showAuthCode ? '👁️' : '👁️‍🗨️' }}
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1">請設定只有老師知道的密碼（勿與座號相同）</p>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">班級圖示與主題配色</label>
+          <div class="flex items-center gap-2">
+            <select v-model="form.icon" class="bg-slate-950 border border-slate-700 rounded-xl px-2.5 py-2 text-base">
+              <option value="🫧">🫧</option>
+              <option value="📚">📚</option>
+              <option value="🌻">🌻</option>
+              <option value="🚀">🚀</option>
+              <option value="🦁">🦁</option>
+              <option value="🌈">🌈</option>
+              <option value="⭐">⭐</option>
+            </select>
+            <select v-model="form.themeColor" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-bold">
+              <option value="indigo">💙 汽泡深藍</option>
+              <option value="emerald">💚 黑板墨綠</option>
+              <option value="purple">💜 星空夢幻紫</option>
+              <option value="amber">🧡 溫暖活力橘</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">班級資料隔離代碼 (Room ID)</label>
+          <div class="flex gap-1.5">
+            <input v-model="form.roomId" type="text"
+                   class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-cyan-300 font-mono focus:outline-none focus:border-indigo-500" />
+            <button @click="regenerateRoomId" type="button"
+                    class="px-2.5 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-xs font-bold text-white transition" title="產生隨機代碼">
+              🎲
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1">用於隔離本機與 Firebase 資料路徑，避免撞名</p>
+        </div>
+      </div>
+
+      <!-- 選填學生姓名摺疊區 -->
+      <div class="bg-slate-900/70 border border-slate-700/70 rounded-2xl p-3.5">
+        <button @click="showNamesPanel = !showNamesPanel" type="button"
+                class="w-full flex items-center justify-between text-xs font-bold text-indigo-300 hover:text-indigo-200 cursor-pointer">
+          <span>👥 進階選填：設定座號對應學生姓名（不填則只顯示座號，目前填寫 {{ parsedNamesCount }} 位）</span>
+          <span>{{ showNamesPanel ? '▲ 收起' : '▼ 展開填寫' }}</span>
+        </button>
+        <div v-if="showNamesPanel" class="mt-3 flex flex-col gap-2">
+          <p class="text-[11px] text-slate-400">
+            支援兩種貼上格式：① 每一行寫「<code>座號 姓名</code>」（例如：<code>1 王小明</code>） ② 直接依序每行貼一個姓名（第1行=1號、第2行=2號...）。
+          </p>
+          <textarea v-model="form.studentNamesRaw" rows="4"
+                    placeholder="範例：&#10;1 王小明&#10;2 李小華&#10;3 張大偉"
+                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= STEP 2：作業來源與教室工具（選填） ================= -->
+    <section class="bg-slate-800/80 border border-slate-700/80 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col gap-4">
+      <div class="flex items-center justify-between border-b border-slate-700/80 pb-3">
+        <h2 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+          <span class="w-7 h-7 rounded-xl bg-cyan-600 text-white text-sm flex items-center justify-center font-black">2</span>
+          <span>📌 作業項目來源與常用教室工具（選填）</span>
+        </h2>
+        <span class="text-xs text-slate-400">沒用 Padlet 也可跳過，看板內支援直接新增與貼上</span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">每日第 1 項固定必收作業名稱</label>
+          <input v-model="form.fixedHwTitle" type="text" placeholder="聯絡簿"
+                 class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500" />
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">Padlet 自動順延規則</label>
+          <label class="flex items-center gap-2.5 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 cursor-pointer">
+            <input type="checkbox" v-model="form.padletAutoShift" class="w-4 h-4 accent-cyan-500 cursor-pointer" />
+            <span class="text-xs text-slate-200 font-bold">
+              前一天出的作業，自動順延到下個上課日收件（週五 ➔ 下週一）
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="text-xs font-bold text-slate-300">Padlet 聯絡簿 RSS 訂閱網址（選填）</label>
+          <button @click="showPadletGuide = !showPadletGuide" type="button" class="text-xs text-cyan-400 hover:underline font-bold">
+            {{ showPadletGuide ? '收起教學 ▲' : '📖 如何取得自己 Padlet 的 RSS 網址？ ▼' }}
+          </button>
+        </div>
+        <input v-model="form.padletRssUrl" type="url"
+               placeholder="例如：https://padlet.com/padlets/xxxx/exports/feed.xml?token=xxxx（沒使用可留空）"
+               class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-emerald-300 placeholder-slate-600 focus:outline-none focus:border-cyan-500 font-mono" />
+
+        <div v-if="showPadletGuide" class="mt-2 bg-slate-900/90 border border-cyan-500/30 rounded-2xl p-3.5 text-xs text-slate-300 space-y-1">
+          <div class="font-black text-cyan-300 mb-1">如何取得 Padlet RSS 網址（3 步驟）：</div>
+          <div>1. 打開您自己的 Padlet 班級聯絡簿網頁。</div>
+          <div>2. 點擊右上角 <strong>「分享 (Share)」</strong> → 往下找到 <strong>「匯出 (Export)」</strong> 區塊 → 點選 <strong>「RSS」</strong>。</div>
+          <div>3. 複製瀏覽器新開啟分頁的網址列（含 <code>feed.xml?token=...</code>），貼進上方輸入框即可自動每日同步！</div>
+          <div class="text-amber-300/90 pt-1">💡 提醒：Padlet 貼文標題建議用 4 碼或斜線日期（例如 <code>1126</code> 或 <code>11/26</code>），系統才能準確辨識日期。</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">頂部「🏫 教室工具」按鈕顯示名稱（選填）</label>
+          <input v-model="form.teachingToolName" type="text" placeholder="例如：教室計時器 / 均一教育平台"
+                 class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500" />
+        </div>
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1">教室工具直達網址 URL（選填）</label>
+          <input v-model="form.teachingToolUrl" type="url" placeholder="https://...（留空則點擊開啟推薦平台選單）"
+                 class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-purple-300 placeholder-slate-600 focus:outline-none focus:border-purple-500 font-mono" />
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= STEP 3：跨電腦雲端同步設定（預設單機 ＋ 免費申請自己的 Firebase 5 步驟手把手教學） ================= -->
+    <section class="bg-slate-800/80 border border-amber-500/40 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700/80 pb-3">
+        <h2 class="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+          <span class="w-7 h-7 rounded-xl bg-amber-500 text-slate-950 text-sm flex items-center justify-center font-black">3</span>
+          <span>☁️ 資料儲存與跨電腦同步設定（含免費 Firebase 申請教學）</span>
+        </h2>
+        <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold">
+          🛡️ 資料完全存於您自己的帳號，獨立不外洩
+        </span>
+      </div>
+
+      <!-- 模式選擇卡片 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <button @click="form.syncMode = 'local'" type="button"
+                :class="form.syncMode === 'local' ? 'bg-indigo-950/70 border-cyan-400 ring-2 ring-cyan-400/30' : 'bg-slate-900/60 border-slate-700 hover:bg-slate-900'"
+                class="p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-black text-white">💻 模式一：教室電腦單機即用（預設）</span>
+            <span v-if="form.syncMode === 'local'" class="text-[11px] px-2 py-0.5 rounded-full bg-cyan-500 text-slate-950 font-black">已選擇</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            <strong>免申請任何帳號！</strong>紀錄自動保存在教室講台電腦的瀏覽器裡，點完馬上存檔，適合只在單一台教室電腦使用的老師。
+          </p>
+        </button>
+
+        <button @click="form.syncMode = 'firebase'" type="button"
+                :class="form.syncMode === 'firebase' ? 'bg-emerald-950/50 border-emerald-400 ring-2 ring-emerald-400/30' : 'bg-slate-900/60 border-slate-700 hover:bg-slate-900'"
+                class="p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col gap-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-black text-white">☁️ 模式二：連接自己的 Firebase（跨裝置即時同步）</span>
+            <span v-if="form.syncMode === 'firebase'" class="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black">已選擇</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            依下方 <strong>5 步驟教學（約 3 分鐘、完全免費）</strong>建立您自己的 Google Firebase 資料庫後，講台電腦、老師筆電與手機都能毫秒同步！
+          </p>
+        </button>
+      </div>
+
+      <!-- 當選擇 Firebase 模式時（或可隨時展開教學），顯示完整的 5 步驟申請指南 -->
+      <div v-if="form.syncMode === 'firebase'" class="flex flex-col gap-4 pt-2">
+        
+        <div class="bg-slate-900/90 border border-indigo-500/40 rounded-2xl p-4 sm:p-5 flex flex-col gap-3.5">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+            <div>
+              <h3 class="text-base font-black text-amber-300 flex items-center gap-1.5">
+                <span>📖 手把手教學：3 分鐘免費申請自己的 Firebase 即時資料庫</span>
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-0.5">
+                使用個人 Google 帳號即可免費使用 Firebase Spark 方案（免綁信用卡、無費用風險，1 班級使用綽綽有餘）。
+              </p>
+            </div>
+            <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer"
+               class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs transition shadow-md flex items-center gap-1 whitespace-nowrap">
+              <span>🚀 前往 Firebase 主控台</span>
+              <span>↗</span>
+            </a>
+          </div>
+
+          <!-- 5 步驟清單 -->
+          <div class="space-y-3 text-xs sm:text-sm">
+            
+            <!-- Step 1 -->
+            <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex gap-3 items-start">
+              <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
+              <div class="space-y-1">
+                <div class="font-black text-white">登入並「建立專案 (Create a project)」</div>
+                <div class="text-xs text-slate-300 leading-relaxed">
+                  打開上方 Firebase 主控台 → 用您的 Google 帳號登入 → 點擊 <strong>「建立 Firebase 專案」</strong> → 輸入專案名稱（例如 <code>class-502-board</code>）→ Google Analytics 可選擇<strong>「不要啟用（關閉）」</strong>→ 點擊「建立專案」。
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex gap-3 items-start">
+              <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
+              <div class="space-y-1.5 flex-1">
+                <div class="font-black text-white">開啟「Realtime Database（即時資料庫）」與永久規則</div>
+                <div class="text-xs text-slate-300 leading-relaxed">
+                  進入專案後，點選左側選單 <strong>「建構 (Build)」→「Realtime Database」</strong> → 點擊 <strong>「建立資料庫」</strong>：<br>
+                  • 位置請選離台灣最近的 <code class="text-cyan-300 font-bold">asia-southeast1</code>（新加坡）。<br>
+                  • 安全規則先選 <strong>「以測試模式啟動 (Start in test mode)」</strong> → 按「啟用」。
+                </div>
+                <div class="bg-amber-950/40 border border-amber-500/30 rounded-lg p-2.5 text-[11px] text-amber-200 space-y-1.5">
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="font-bold">⚠️ 重要必做（避免 30 天後過期斷線）：建好後點上方「規則 (Rules)」分頁，改貼以下規則並按「發佈」：</span>
+                    <button @click="copyFirebaseRules" type="button"
+                            class="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-black transition cursor-pointer">
+                      📋 複製安全規則
+                    </button>
+                  </div>
+                  <pre class="bg-slate-950 text-emerald-300 p-2 rounded font-mono text-[11px] overflow-x-auto">{
+  "rules": {
+    "hw_boards": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}</pre>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex gap-3 items-start">
+              <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
+              <div class="space-y-1">
+                <div class="font-black text-white">新增網頁應用程式（點選 <code>&lt;/&gt;</code> 圖示）</div>
+                <div class="text-xs text-slate-300 leading-relaxed">
+                  點擊左上角「專案總覽 (Project Overview)」→ 點選頁面中央的網頁圓形圖示 <strong><code>&lt;/&gt;</code></strong>（新增應用程式）→ 應用程式暱稱填 <code>hw-board</code>（不需勾選 Firebase Hosting）→ 點擊「註冊應用程式」。
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="bg-slate-950/70 border border-slate-800 rounded-xl p-3 flex gap-3 items-start">
+              <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white text-xs font-black flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
+              <div class="space-y-1">
+                <div class="font-black text-white">整段複製 <code>firebaseConfig</code> 貼入下方輸入框</div>
+                <div class="text-xs text-slate-300 leading-relaxed">
+                  畫面出現 <code>const firebaseConfig = { apiKey: "...", ... };</code> 後整段複製，直接貼進下方文字框！<br>
+                  <span class="text-rose-300 font-bold">💡 若該程式碼裡面沒有看到 <code>databaseURL</code> 欄位，請回到 Step 2 的 Realtime Database 頁面，把最上方顯示的 <code>https://xxx.firebasedatabase.app</code> 網址一起複製補進來，或先建好資料庫再註冊網頁應用！</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Firebase 設定貼上與即時驗證區 -->
+        <div class="bg-slate-900/90 border border-slate-700 rounded-2xl p-4 flex flex-col gap-2.5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label class="text-xs font-black text-emerald-300">
+              📋 步驟 5：貼上您的 Firebase 設定（支援直接貼入整段 const firebaseConfig = { ... }）：
+            </label>
+            <button @click="validateFirebaseInput" type="button"
+                    class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition cursor-pointer">
+              🔍 檢查與驗證格式
+            </button>
+          </div>
+          <textarea v-model="form.firebaseRaw" rows="6"
+                    placeholder='可直接貼上 Firebase 給的程式碼，例如：&#10;const firebaseConfig = {&#10;  apiKey: "AIzaSy...",&#10;  authDomain: "your-project.firebaseapp.com",&#10;  databaseURL: "https://your-project-default-rtdb.asia-southeast1.firebasedatabase.app",&#10;  projectId: "your-project"&#10;};'
+                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-emerald-300 placeholder-slate-600 focus:outline-none focus:border-emerald-500 font-mono"></textarea>
+
+          <!-- 解析結果回饋 -->
+          <div v-if="fbCheckResult"
+               :class="fbCheckResult.ok ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300' : 'bg-rose-950/50 border-rose-500/40 text-rose-300'"
+               class="p-3 rounded-xl border text-xs font-bold">
+            {{ fbCheckResult.message }}
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= STEP 4：✨ 一鍵生成您的班級看板 ================= -->
+    <section class="bg-gradient-to-br from-slate-800 via-indigo-950/50 to-slate-800 border-2 border-indigo-500/50 rounded-3xl p-5 sm:p-6 shadow-2xl flex flex-col gap-5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
+            <span class="w-8 h-8 rounded-xl bg-emerald-500 text-slate-950 text-base flex items-center justify-center font-black">4</span>
+            <span>✨ 一鍵生成專屬班級作業看板</span>
+          </h2>
+          <p class="text-xs text-slate-300 mt-1">
+            同時提供「免下載線上專屬網址 ＋ QR Code」以及「下載獨立單檔 HTML」，兩種方式皆可自由使用！
+          </p>
+        </div>
+
+        <button @click="generateBoard"
+                class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-sm sm:text-base shadow-xl shadow-emerald-500/25 transition active:scale-95 cursor-pointer flex items-center gap-2">
+          <span>✨ 立即產生我的班級看板</span>
+        </button>
+      </div>
+
+      <!-- 生成結果區 -->
+      <div v-if="generatedResult" class="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-2 border-t border-slate-700/80">
+        
+        <!-- 產出 A：線上專屬網址 + 操作按鈕 -->
+        <div class="lg:col-span-2 bg-slate-900/90 border border-cyan-500/40 rounded-2xl p-4 flex flex-col justify-between gap-3">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-sm font-black text-cyan-300 flex items-center gap-1.5">
+                <span>🔗 方式 A：班級專屬線上網址（免架站・存入書籤即可用）</span>
+              </span>
+              <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold">
+                {{ generatedResult.hasFirebase ? '☁️ 已綁定專屬 Firebase' : '💻 本機單機模式' }}
+              </span>
+            </div>
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-[11px] text-emerald-300 font-mono break-all max-h-24 overflow-y-auto">
+              {{ generatedResult.shareUrl }}
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-2">
+            <button @click="copyShareUrl"
+                    class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-black transition cursor-pointer flex items-center gap-1.5">
+              <span>📋 複製班級專屬網址</span>
+            </button>
+            <a :href="generatedResult.shareUrl" target="_blank" rel="noopener noreferrer"
+               class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black transition flex items-center gap-1.5">
+              <span>🚀 立即開啟看板測試 ↗</span>
+            </a>
+            <button @click="downloadStandaloneHtml"
+                    :disabled="isDownloading"
+                    class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-black transition cursor-pointer flex items-center gap-1.5">
+              <span>📥 {{ isDownloading ? '打包中...' : '下載獨立網頁檔 (.html)' }}</span>
+            </button>
+            <button @click="copyTeacherCheatSheet"
+                    class="px-4 py-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/35 text-amber-300 border border-amber-500/40 text-xs font-bold transition cursor-pointer">
+              📝 複製教師使用備忘錄
+            </button>
+          </div>
+
+          <p class="text-[11px] text-slate-400">
+            💡 <strong>提醒：</strong>因為網址內含您的看板設定與認證資訊，建議<strong>僅供教室電腦與老師自己的裝置加入書籤</strong>，不要將這組帶有設定的網址隨意公開張貼。若要下載離線獨立 <code>.html</code> 檔，點擊上方綠色按鈕即可打包！
+          </p>
+        </div>
+
+        <!-- QR Code 卡片（純本機 Canvas 產生，不傳送設定至外部伺服器） -->
+        <div class="bg-slate-900/90 border border-slate-700 rounded-2xl p-4 flex flex-col items-center justify-center text-center gap-2">
+          <div class="text-xs font-black text-white">📱 平板／手機掃描開啟</div>
+          <div class="bg-white p-2.5 rounded-2xl shadow-lg">
+            <canvas ref="qrCanvasRef" width="160" height="160"></canvas>
+          </div>
+          <div class="text-[11px] text-slate-400">
+            使用平板相機掃描即可直接進入【{{ form.className || '本班' }}】看板
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="text-center text-xs text-slate-500 py-5 border-t border-slate-900">
+    班級作業佈告欄建立精靈 • 資料由各班級自行保管與隔離，安全免費開源分享
+  </footer>
+
+</div>
+
+<script>
+const { createApp, ref, computed, nextTick } = Vue;
+
+function parseFirebaseConfigInput(rawText) {
+  if (!rawText) return null;
+  let s = String(rawText).trim();
+  const braceMatch = s.match(/\{[\s\S]*\}/);
+  if (!braceMatch) return null;
+  s = braceMatch[0];
+  try {
+    return JSON.parse(s);
+  } catch (_) {
+    const normalized = s
+      .replace(/\/\*[\s\S]*?\*\/|(?:^|[\s;])\/\/.*$/gm, '')
+      .replace(/([{,]\s*)(['"]?)([a-zA-Z0-9_]+)\2\s*:/g, '$1"$3":')
+      .replace(/,\s*}/g, '}')
+      .replace(/'([^']*)'/g, '"$1"');
+    return JSON.parse(normalized);
+  }
+}
+
+function encodeBoardConfigToBase64(obj) {
+  const json = JSON.stringify(obj);
+  const bytes = new TextEncoder().encode(json);
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin);
+}
+
+createApp({
+  setup() {
+    const randomCode = () => 'room_' + Math.random().toString(36).slice(2, 8);
+
+    const form = ref({
+      className: '502 陽光班',
+      boardTitle: '502 陽光班 作業佈告欄',
+      icon: '🫧',
+      themeColor: 'indigo',
+      roomId: randomCode(),
+      studentCount: 28,
+      skipSeatsText: '',
+      studentNamesRaw: '',
+      leaderGroupCount: 6,
+      authCode: '502502',
+      fixedHwTitle: '聯絡簿',
+      padletRssUrl: '',
+      padletAutoShift: true,
+      teachingToolName: '',
+      teachingToolUrl: '',
+      syncMode: 'local', // 'local' | 'firebase'
+      firebaseRaw: ''
+    });
+
+    const showAuthCode = ref(false);
+    const showNamesPanel = ref(false);
+    const showPadletGuide = ref(false);
+    const toastMsg = ref('');
+    const fbCheckResult = ref(null);
+    const generatedResult = ref(null);
+    const qrCanvasRef = ref(null);
+    const isDownloading = ref(false);
+
+    const showToast = (msg) => {
+      toastMsg.value = msg;
+      setTimeout(() => { toastMsg.value = ''; }, 3200);
+    };
+
+    const regenerateRoomId = () => {
+      form.value.roomId = randomCode();
+      showToast('已產生新的班級隔離代碼！');
+    };
+
+    const parsedSkipSeats = computed(() => {
+      const maxN = Math.min(45, Math.max(1, parseInt(form.value.studentCount, 10) || 28));
+      return (form.value.skipSeatsText || '')
+        .split(/[,，\s]+/)
+        .map(x => parseInt(x.trim(), 10))
+        .filter(n => !isNaN(n) && n >= 1 && n <= maxN);
+    });
+
+    const effectiveSeatCount = computed(() => {
+      const maxN = Math.min(45, Math.max(1, parseInt(form.value.studentCount, 10) || 28));
+      const skip = new Set(parsedSkipSeats.value);
+      let cnt = 0;
+      for (let i = 1; i <= maxN; i++) {
+        if (!skip.has(i)) cnt++;
+      }
+      return cnt;
+    });
+
+    const parsedStudentNames = computed(() => {
+      const lines = (form.value.studentNamesRaw || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const map = {};
+      lines.forEach((line, idx) => {
+        const m = line.match(/^(\d{1,2})\s*[\.\、\s]\s*(.+)$/);
+        if (m) {
+          map[String(parseInt(m[1], 10))] = m[2].trim();
+        } else {
+          map[String(idx + 1)] = line;
+        }
+      });
+      return map;
+    });
+
+    const parsedNamesCount = computed(() => Object.keys(parsedStudentNames.value).length);
+
+    const copyFirebaseRules = () => {
+      const rulesText = JSON.stringify({
+        rules: {
+          hw_boards: {
+            ".read": true,
+            ".write": true
+          }
+        }
+      }, null, 2);
+      navigator.clipboard.writeText(rulesText).then(() => {
+        showToast('📋 已複製 Firebase 安全規則！請貼到主控台的「規則 (Rules)」分頁並發布');
+      }).catch(() => alert(rulesText));
+    };
+
+    const validateFirebaseInput = () => {
+      const raw = (form.value.firebaseRaw || '').trim();
+      if (!raw) {
+        fbCheckResult.value = { ok: false, message: '⚠️ 尚未貼上任何 Firebase 設定內容。' };
+        return null;
+      }
+      try {
+        const cfg = parseFirebaseConfigInput(raw);
+        if (!cfg || !cfg.apiKey) {
+          fbCheckResult.value = { ok: false, message: '❌ 格式錯誤：找不到 apiKey 欄位，請確認有完整複製 const firebaseConfig = { ... } 區塊。' };
+          return null;
+        }
+        if (!cfg.databaseURL) {
+          fbCheckResult.value = { ok: false, message: '⚠️ 缺少 databaseURL 欄位！請確認已先執行「Step 2 建立 Realtime Database」，並把 https://xxx.firebasedatabase.app 網址一併貼上。' };
+          return null;
+        }
+        fbCheckResult.value = {
+          ok: true,
+          message: `✅ 驗證成功！已偵測到專案「${cfg.projectId || 'Firebase'}」與即時資料庫 (${cfg.databaseURL})，可安心產生跨電腦同步看板！`
+        };
+        return cfg;
+      } catch (e) {
+        fbCheckResult.value = { ok: false, message: '❌ 解析失敗，請確認貼上的程式碼括號完整（包含 { ... }）。' };
+        return null;
+      }
+    };
+
+    const buildCleanConfig = () => {
+      const className = (form.value.className || '我的班級').trim();
+      const boardTitle = (form.value.boardTitle || `${className} 作業佈告欄`).trim();
+      const authCode = (form.value.authCode || '').trim() || '123456';
+      let fbConfig = null;
+      if (form.value.syncMode === 'firebase') {
+        fbConfig = validateFirebaseInput();
+        if (!fbConfig) return null;
+      }
+
+      return {
+        roomId: (form.value.roomId || randomCode()).replace(/[^a-zA-Z0-9_-]/g, '_'),
+        className,
+        boardTitle,
+        icon: form.value.icon || '🫧',
+        themeColor: form.value.themeColor || 'indigo',
+        studentCount: Math.min(45, Math.max(1, parseInt(form.value.studentCount, 10) || 28)),
+        skipSeats: parsedSkipSeats.value,
+        studentNames: parsedStudentNames.value,
+        leaderGroupCount: Math.min(10, Math.max(0, parseInt(form.value.leaderGroupCount, 10) || 0)),
+        authCode,
+        fixedHwTitle: (form.value.fixedHwTitle || '聯絡簿').trim(),
+        padletRssUrl: (form.value.padletRssUrl || '').trim(),
+        padletAutoShift: !!form.value.padletAutoShift,
+        teachingToolName: (form.value.teachingToolName || '').trim() || '教室常用工具',
+        teachingToolUrl: (form.value.teachingToolUrl || '').trim(),
+        teachingToolDirectOpen: !!(form.value.teachingToolUrl || '').trim(),
+        firebaseConfig: fbConfig
+      };
+    };
+
+    const generateBoard = async () => {
+      if (!form.value.authCode || form.value.authCode.trim().length < 4) {
+        alert('請設定至少 4 碼的教師鎖定認證碼！');
+        return;
+      }
+      const cfg = buildCleanConfig();
+      if (!cfg) {
+        if (form.value.syncMode === 'firebase') {
+          alert('請先在 Step 3 貼上並驗證您的 Firebase 設定，或改選「模式一：單機即用」！');
+        }
+        return;
+      }
+
+      const encoded = encodeBoardConfigToBase64(cfg);
+      const baseHref = window.location.href.split('#')[0].split('?')[0];
+      const boardUrl = baseHref.replace(/[^/]*$/, 'board.html') + '#cfg=' + encodeURIComponent(encoded);
+
+      generatedResult.value = {
+        cfg,
+        shareUrl: boardUrl,
+        hasFirebase: !!cfg.firebaseConfig
+      };
+
+      await nextTick();
+      if (qrCanvasRef.value && typeof QRious === 'function') {
+        try {
+          new QRious({
+            element: qrCanvasRef.value,
+            value: boardUrl,
+            size: 160,
+            level: 'L'
+          });
+        } catch (e) {
+          console.warn('QR 條碼過長，改顯示精簡提醒', e);
+        }
+      }
+      showToast('✨ 班級專屬看板已生成！');
+    };
+
+    const copyShareUrl = () => {
+      if (!generatedResult.value) return;
+      navigator.clipboard.writeText(generatedResult.value.shareUrl).then(() => {
+        showToast('📋 已複製班級專屬網址！可加入教室電腦書籤');
+      }).catch(() => alert(generatedResult.value.shareUrl));
+    };
+
+    const downloadStandaloneHtml = async () => {
+      if (!generatedResult.value) return;
+      isDownloading.value = true;
+      try {
+        const res = await fetch('./board.html?t=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        let tpl = await res.text();
+        const placeholder = '/*__BAKED_CONFIG_PLACEHOLDER__*/null';
+        if (!tpl.includes(placeholder)) {
+          throw new Error('找不到模板注入點');
+        }
+        const bakedJson = JSON.stringify(generatedResult.value.cfg).replace(/<\/script>/gi, '<\\/script>');
+        tpl = tpl.replace(placeholder, bakedJson);
+
+        const blob = new Blob([tpl], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${generatedResult.value.cfg.className}_作業佈告欄.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('📥 已成功打包並下載獨立網頁檔 (.html)！');
+      } catch (e) {
+        alert('下載獨立 HTML 檔需透過線上網頁伺服器（如 GitHub Pages）開啟精靈才能打包喔！若您目前是本機開啟檔案，請改用「📋 複製班級專屬網址」或從線上精靈網址下載。');
+      } finally {
+        isDownloading.value = false;
+      }
+    };
+
+    const copyTeacherCheatSheet = () => {
+      if (!generatedResult.value) return;
+      const c = generatedResult.value.cfg;
+      const text = [
+        `🧙‍♂️【${c.boardTitle}】教師專屬備忘錄`,
+        `------------------------------------`,
+        `🏫 班級人數：共 ${effectiveSeatCount.value} 人（最大座號 ${c.studentCount} 號）`,
+        c.skipSeats.length > 0 ? `⏭️ 已跳過空號：${c.skipSeats.join(', ')} 號` : `⏭️ 跳號設定：無`,
+        `👑 每週組長簽到：${c.leaderGroupCount > 0 ? c.leaderGroupCount + ' 組' : '未啟用'}`,
+        `🔐 導師鎖定／解鎖認證碼：${c.authCode}（請勿外流給學生）`,
+        `☁️ 同步模式：${c.firebaseConfig ? '個人 Firebase 跨裝置即時同步' : '教室電腦本機儲存模式'}`,
+        `🔗 專屬看板網址：`,
+        generatedResult.value.shareUrl,
+        `------------------------------------`,
+        `💡 小老師操作：綠燈=已交，點擊座號變紅燈=未交，再點一次變回綠燈！`
+      ].join('\n');
+
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('📝 已複製教師備忘錄！可貼到 LINE Keep 保存');
+      }).catch(() => alert(text));
+    };
+
+    return {
+      form,
+      showAuthCode,
+      showNamesPanel,
+      showPadletGuide,
+      toastMsg,
+      fbCheckResult,
+      generatedResult,
+      qrCanvasRef,
+      isDownloading,
+      effectiveSeatCount,
+      parsedNamesCount,
+      regenerateRoomId,
+      copyFirebaseRules,
+      validateFirebaseInput,
+      generateBoard,
+      copyShareUrl,
+      downloadStandaloneHtml,
+      copyTeacherCheatSheet
+    };
+  }
+}).mount('#app');
+</script>
+
+</body>
+</html>
