@@ -316,6 +316,54 @@
   <!-- 主內容區 -->
   <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-4 flex flex-col gap-3">
 
+    <!-- ================= 👑 本週組長簽到欄（六組各輸入組長座號，方便導師加扣分追蹤） ================= -->
+    <div v-if="activeTab !== 'analytics'"
+         class="bg-gradient-to-r from-amber-950/40 via-slate-800/90 to-indigo-950/40 border border-amber-500/35 rounded-2xl px-3.5 py-2 shadow-lg flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="px-2.5 py-1 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black flex items-center gap-1.5">
+          <span>👑</span>
+          <span>本週組長簽到</span>
+          <span class="font-mono text-[11px] opacity-85 hidden sm:inline">({{ weekLabel }})</span>
+        </span>
+      </div>
+
+      <!-- 六組組長座號輸入空格 (第 1 組 ~ 第 6 組) -->
+      <div class="flex items-center flex-wrap gap-1.5 sm:gap-2 flex-1 justify-start lg:justify-center">
+        <div v-for="gIdx in 6" :key="gIdx"
+             :class="currentWeekLeaders[gIdx - 1] ? 'border-emerald-500/50 bg-slate-900/95' : 'border-slate-700 bg-slate-950/80'"
+             class="flex items-center gap-1 px-2 py-1 rounded-xl border transition focus-within:border-amber-400 focus-within:ring-2 focus-within:ring-amber-400/25">
+          <span class="text-[11px] font-bold text-slate-400 whitespace-nowrap">第{{ gIdx }}組</span>
+          <input type="text"
+                 inputmode="numeric"
+                 maxlength="2"
+                 :value="currentWeekLeaders[gIdx - 1]"
+                 @input="onLeaderSeatInput(gIdx - 1, $event)"
+                 @blur="finalizeLeaderSeat(gIdx - 1, $event)"
+                 :disabled="isCurrentWeekLeadersLocked"
+                 placeholder="座號"
+                 :class="isCurrentWeekLeadersLocked ? 'cursor-not-allowed opacity-80' : ''"
+                 class="w-9 bg-transparent text-center text-sm font-black text-amber-300 placeholder-slate-600 focus:outline-none font-mono"
+                 :aria-label="'第' + gIdx + '組組長座號'" />
+          <span v-if="currentWeekLeaders[gIdx - 1]" class="text-[11px] font-bold text-emerald-400">號</span>
+        </div>
+      </div>
+
+      <!-- 右側快捷操作：複製名單 / 鎖定簽到 -->
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        <button @click="copyWeeklyLeaders"
+                class="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-500/15 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 transition cursor-pointer whitespace-nowrap"
+                title="複製本週六組組長座號名單（方便後續加扣分紀錄）">
+          📋 複製組長
+        </button>
+        <button @click="handleLeadersLockToggle"
+                :class="isCurrentWeekLeadersLocked ? 'bg-rose-500/25 text-rose-200 border-rose-500/50 hover:bg-rose-500/40' : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-600'"
+                class="px-2 py-1 rounded-xl text-[11px] font-bold border transition cursor-pointer whitespace-nowrap"
+                :title="isCurrentWeekLeadersLocked ? '組長簽到已鎖定，點擊輸入認證碼解鎖' : '組長簽到完成後可鎖定，防止學生誤改'">
+          {{ isCurrentWeekLeadersLocked ? '🔒 已鎖' : '🔓 鎖定' }}
+        </button>
+      </div>
+    </div>
+
     <!-- ================= 視圖 A: 單日模式（週一 ~ 週五之其中一日） ================= -->
     <template v-if="activeTab !== 'summary' && activeTab !== 'analytics'">
       
@@ -832,6 +880,7 @@
                 <th class="py-3 px-3 font-bold text-center w-24">已交項次</th>
                 <th class="py-3 px-3 font-bold text-center w-24">尚欠項次</th>
                 <th class="py-3 px-3 font-bold text-center w-20">請假天數</th>
+                <th class="py-3 px-3 font-bold text-center w-20">任組長</th>
                 <th class="py-3 px-3 font-bold w-40">累計繳交率</th>
                 <th class="py-3 px-3 font-bold">目前尚未補交作業明細（點擊可直接補交）</th>
                 <th class="py-3 px-3 font-bold text-center w-32">個人履歷</th>
@@ -874,6 +923,16 @@
                 <!-- 請假天數 -->
                 <td class="py-3 px-3 text-center font-mono text-amber-300">
                   {{ stat.absentDays > 0 ? stat.absentDays + ' 天' : '-' }}
+                </td>
+
+                <!-- 任組長次數 (方便加扣分參考) -->
+                <td class="py-3 px-3 text-center">
+                  <span v-if="stat.leaderCount > 0"
+                        :title="stat.leaderWeeksText"
+                        class="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black cursor-help">
+                    👑 {{ stat.leaderCount }} 次
+                  </span>
+                  <span v-else class="text-slate-600 text-xs">-</span>
                 </td>
 
                 <!-- 繳交率進度條 -->
@@ -1502,6 +1561,15 @@
               <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需由導師輸入專屬認證碼。</span>
             </div>
           </template>
+          <template v-else-if="lockActionTarget.type === 'leaders'">
+            <div class="text-sm font-black text-rose-200 mb-1">
+              確定要鎖定本週【{{ lockActionTarget.hwTitle }}】組長簽到欄嗎？
+            </div>
+            <div class="text-xs text-slate-300 leading-relaxed">
+              鎖定後，本週第 1～6 組組長座號欄位將轉為<strong>唯讀保護模式</strong>，學生無法再任意更動，方便老師後續依據紀錄加扣分。<br>
+              <span class="text-amber-300 font-bold mt-1 inline-block">💡 之後解鎖需由導師輸入專屬認證碼。</span>
+            </div>
+          </template>
           <template v-else>
             <div class="text-sm font-black text-rose-200 mb-1">
               確定要鎖定【{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }}】整日作業看板嗎？
@@ -1541,6 +1609,10 @@
         <template v-if="lockActionTarget.type === 'hw'">
           作業項目【<strong class="text-rose-300">{{ lockActionTarget.hwTitle }}</strong>】目前處於導師鎖定保護狀態。<br>
           請輸入教師專屬認證碼以解除此作業鎖定：
+        </template>
+        <template v-else-if="lockActionTarget.type === 'leaders'">
+          本週【<strong class="text-rose-300">{{ lockActionTarget.hwTitle }}</strong>】組長簽到欄目前處於導師鎖定保護狀態。<br>
+          請輸入教師專屬認證碼以解除簽到欄鎖定：
         </template>
         <template v-else>
           【{{ currentDayObject ? currentDayObject.name + ' (' + currentDayObject.shortDate + ')' : '' }}】作業看板目前處於鎖定保護狀態。<br>
@@ -1659,6 +1731,136 @@ createApp({
       activeTab.value = iso;
     };
 
+    // 👑 每週組長簽到系統（六組 6 空格，按每週週一 ISO 儲存，跨裝置即時同步）
+    const LEADERS_STORAGE_KEY = '607_weekly_leaders_v1';
+    const weeklyLeaders = ref({});
+
+    const currentWeekKey = computed(() => {
+      return (weekDays.value && weekDays.value[0]) ? weekDays.value[0].iso : todayIso;
+    });
+
+    const normalizeLeaderEntry = (entry) => {
+      const seats = ['', '', '', '', '', ''];
+      if (entry && entry.seats) {
+        for (let i = 0; i < 6; i++) {
+          const val = entry.seats[i] !== undefined && entry.seats[i] !== null ? String(entry.seats[i]).trim() : '';
+          seats[i] = val;
+        }
+      }
+      return {
+        seats,
+        isLocked: !!(entry && entry.isLocked)
+      };
+    };
+
+    const currentWeekLeaders = computed(() => {
+      const entry = weeklyLeaders.value[currentWeekKey.value];
+      return entry ? normalizeLeaderEntry(entry).seats : ['', '', '', '', '', ''];
+    });
+
+    const isCurrentWeekLeadersLocked = computed(() => {
+      const entry = weeklyLeaders.value[currentWeekKey.value];
+      return !!(entry && entry.isLocked);
+    });
+
+    const saveLeadersToLocalStorage = () => {
+      localStorage.setItem(LEADERS_STORAGE_KEY, JSON.stringify(weeklyLeaders.value));
+    };
+
+    const syncSingleLeaderSeatToCloud = (weekKey, groupIdx, seatVal) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`lingyi_607/weekly_leaders/${weekKey}/seats/${groupIdx}`)
+          .set(seatVal || '')
+          .catch(e => console.warn('雲端更新組長座號失敗', e));
+      }
+    };
+
+    const syncWeekLeadersLockToCloud = (weekKey, isLocked) => {
+      if (rtdb && isCloudSyncActive.value) {
+        rtdb.ref(`lingyi_607/weekly_leaders/${weekKey}/isLocked`)
+          .set(!!isLocked)
+          .catch(e => console.warn('雲端更新組長鎖定狀態失敗', e));
+      }
+    };
+
+    const ensureWeekLeaderEntry = (weekKey) => {
+      const existing = weeklyLeaders.value[weekKey];
+      const normalized = normalizeLeaderEntry(existing);
+      weeklyLeaders.value = {
+        ...weeklyLeaders.value,
+        [weekKey]: normalized
+      };
+      return weeklyLeaders.value[weekKey];
+    };
+
+    const onLeaderSeatInput = (groupIdx, evt) => {
+      const wk = currentWeekKey.value;
+      if (isCurrentWeekLeadersLocked.value) return;
+      const raw = (evt && evt.target) ? evt.target.value : '';
+      const digits = raw.replace(/\D/g, '').slice(0, 2);
+
+      if (digits === '') {
+        const entry = ensureWeekLeaderEntry(wk);
+        entry.seats[groupIdx] = '';
+        saveLeadersToLocalStorage();
+        syncSingleLeaderSeatToCloud(wk, groupIdx, '');
+        return;
+      }
+
+      const num = parseInt(digits, 10);
+      if (num >= 1 && num <= 26) {
+        const cleanVal = String(num);
+        if (evt && evt.target) evt.target.value = cleanVal;
+        const entry = ensureWeekLeaderEntry(wk);
+        entry.seats[groupIdx] = cleanVal;
+        saveLeadersToLocalStorage();
+        syncSingleLeaderSeatToCloud(wk, groupIdx, cleanVal);
+      } else {
+        showToast('⚠️ 座號請輸入 1 ～ 26 號喔！');
+        const entry = ensureWeekLeaderEntry(wk);
+        if (evt && evt.target) evt.target.value = entry.seats[groupIdx] || '';
+      }
+    };
+
+    const finalizeLeaderSeat = (groupIdx, evt) => {
+      const wk = currentWeekKey.value;
+      if (isCurrentWeekLeadersLocked.value) return;
+      const raw = (evt && evt.target) ? evt.target.value.trim() : '';
+      const num = parseInt(raw, 10);
+      const cleanVal = (raw !== '' && !isNaN(num) && num >= 1 && num <= 26) ? String(num) : '';
+      if (evt && evt.target && evt.target.value !== cleanVal) {
+        evt.target.value = cleanVal;
+      }
+      const entry = ensureWeekLeaderEntry(wk);
+      if (entry.seats[groupIdx] !== cleanVal) {
+        entry.seats[groupIdx] = cleanVal;
+        saveLeadersToLocalStorage();
+        syncSingleLeaderSeatToCloud(wk, groupIdx, cleanVal);
+      }
+    };
+
+    const copyWeeklyLeaders = () => {
+      const seats = currentWeekLeaders.value;
+      let text = `👑【607 本週組長簽到名單】(${weekLabel.value})\n`;
+      text += `------------------------------------\n`;
+      for (let i = 0; i < 6; i++) {
+        text += `• 第 ${i + 1} 組：${seats[i] ? seats[i] + ' 號' : '（尚未填寫）'}\n`;
+      }
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('📋 已複製本週六組組長名單！方便您登記加扣分');
+      }).catch(() => alert(text));
+    };
+
+    const handleLeadersLockToggle = () => {
+      const wk = currentWeekKey.value;
+      if (isCurrentWeekLeadersLocked.value) {
+        openUnlockModal('leaders', wk, '', weekLabel.value);
+      } else {
+        lockActionTarget.value = { type: 'leaders', iso: wk, hwId: '', hwTitle: weekLabel.value };
+        showLockConfirmModal.value = true;
+      }
+    };
+
     // 視圖狀態
     const currentView = ref('check');
     const toastMsg = ref('');
@@ -1744,6 +1946,18 @@ createApp({
 
     const confirmLockBoard = () => {
       const target = lockActionTarget.value;
+      if (target.type === 'leaders') {
+        const wk = target.iso || currentWeekKey.value;
+        const entry = ensureWeekLeaderEntry(wk);
+        entry.isLocked = true;
+        saveLeadersToLocalStorage();
+        syncWeekLeadersLockToCloud(wk, true);
+        showLockConfirmModal.value = false;
+        playClickSound('missing');
+        showToast(`🔒 本週（${target.hwTitle || weekLabel.value}）組長簽到欄已鎖定！`);
+        return;
+      }
+
       const targetIso = target.iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
       const day = ensureDayData(targetIso);
 
@@ -1786,6 +2000,20 @@ createApp({
       authCodeInput.value = code;
       if (code === TEACHER_AUTH_CODE) {
         const target = lockActionTarget.value;
+        if (target.type === 'leaders') {
+          const wk = target.iso || currentWeekKey.value;
+          const entry = ensureWeekLeaderEntry(wk);
+          entry.isLocked = false;
+          saveLeadersToLocalStorage();
+          syncWeekLeadersLockToCloud(wk, false);
+          showUnlockAuthModal.value = false;
+          authCodeInput.value = '';
+          authErrorMsg.value = '';
+          playClickSound('complete');
+          showToast(`🔓 認證成功！本週（${target.hwTitle || weekLabel.value}）組長簽到欄已解除鎖定`);
+          return;
+        }
+
         const targetIso = target.iso || (currentDayObject.value ? currentDayObject.value.iso : todayIso);
         const day = ensureDayData(targetIso);
 
@@ -2232,6 +2460,24 @@ createApp({
           }
         });
 
+        // 👑 監聽雲端「每週組長簽到」即時同步
+        const leadersRef = rtdb.ref('lingyi_607/weekly_leaders');
+        leadersRef.on('value', (snap) => {
+          const val = snap.val();
+          if (val && typeof val === 'object') {
+            const nextMap = { ...(weeklyLeaders.value || {}) };
+            for (const [wk, entry] of Object.entries(val)) {
+              if (entry) {
+                nextMap[wk] = normalizeLeaderEntry(entry);
+              }
+            }
+            weeklyLeaders.value = nextMap;
+            saveLeadersToLocalStorage();
+          } else if (weeklyLeaders.value && Object.keys(weeklyLeaders.value).length > 0) {
+            leadersRef.set(weeklyLeaders.value).catch(e => console.warn('首次同步組長名單失敗', e));
+          }
+        });
+
         showToast('☁️ 雲端即時同步已連線！多台電腦可即時查看');
       } catch (err) {
         console.error('Firebase 連線失敗', err);
@@ -2243,6 +2489,7 @@ createApp({
       if (rtdb) {
         rtdb.ref('lingyi_607/weekly_data').off();
         rtdb.ref('lingyi_607/teaching_tools').off();
+        rtdb.ref('lingyi_607/weekly_leaders').off();
       }
       rtdb = null;
       isCloudSyncActive.value = false;
@@ -2815,7 +3062,25 @@ createApp({
     const studentAnalyticsList = computed(() => {
       const days = analyticsFilteredDays.value;
       const allMap = allDaysData.value || {};
+      const leadersMap = weeklyLeaders.value || {};
+      const currentMonthPrefix = todayIso.slice(0, 7);
+      const activeWeekKey = currentWeekKey.value;
       const result = [];
+
+      // 依統計範圍累計每位座號擔任組長次數
+      const leaderRecordsBySeat = {};
+      Object.keys(leadersMap).sort().forEach(wk => {
+        if (analyticsRange.value === 'week' && wk !== activeWeekKey) return;
+        if (analyticsRange.value === 'month' && !wk.startsWith(currentMonthPrefix)) return;
+        const entry = normalizeLeaderEntry(leadersMap[wk]);
+        entry.seats.forEach((seatStr, idx) => {
+          const sNum = parseInt(seatStr, 10);
+          if (!isNaN(sNum) && sNum >= 1 && sNum <= 26) {
+            if (!leaderRecordsBySeat[sNum]) leaderRecordsBySeat[sNum] = [];
+            leaderRecordsBySeat[sNum].push(`${getShortDateFromIso(wk)}週(第${idx + 1}組)`);
+          }
+        });
+      });
 
       for (let seat = 1; seat <= 26; seat++) {
         let expectedCount = 0;
@@ -2850,6 +3115,7 @@ createApp({
 
         const submittedCount = Math.max(0, expectedCount - missingCount);
         const submitRate = expectedCount > 0 ? Math.round((submittedCount / expectedCount) * 100) : 100;
+        const leaderHistory = leaderRecordsBySeat[seat] || [];
 
         result.push({
           seat,
@@ -2858,7 +3124,9 @@ createApp({
           missingCount,
           absentDays,
           submitRate,
-          missingItems
+          missingItems,
+          leaderCount: leaderHistory.length,
+          leaderWeeksText: leaderHistory.join('、')
         });
       }
       return result;
@@ -3020,9 +3288,9 @@ createApp({
       return str;
     };
 
-    // 匯出 1：全班個人累計統計表 (適合打平時成績)
+    // 匯出 1：全班個人累計統計表 (適合打平時成績與組長加扣分)
     const exportStudentSummaryCsv = () => {
-      const headers = ['座號', '統計範圍', '應交總項次', '已交項次', '尚欠項次', '請假天數', '繳交率(%)', '尚未補交作業明細'];
+      const headers = ['座號', '統計範圍', '應交總項次', '已交項次', '尚欠項次', '請假天數', '繳交率(%)', '擔任組長次數', '擔任組長週次明細', '尚未補交作業明細'];
       const rows = [headers.map(escapeCsvField).join(',')];
 
       studentAnalyticsList.value.forEach(st => {
@@ -3035,6 +3303,8 @@ createApp({
           st.missingCount,
           st.absentDays,
           `${st.submitRate}%`,
+          st.leaderCount || 0,
+          st.leaderWeeksText || '無',
           missingDesc || '全數繳齊'
         ];
         rows.push(row.map(escapeCsvField).join(','));
@@ -3534,6 +3804,11 @@ createApp({
           text += `------------------------------------------\n`;
           text += `其餘同學本週作業已全數繳齊！\n請尚未繳清的同學務必於放學前完成補交。`;
         }
+        const leaders = currentWeekLeaders.value;
+        if (leaders.some(s => !!s)) {
+          const leaderSummary = leaders.map((s, idx) => `第${idx + 1}組:${s ? s + '號' : '-'}`).join(' / ');
+          text += `\n👑 本週組長：${leaderSummary}`;
+        }
 
         navigator.clipboard.writeText(text).then(() => {
           showToast('已複製本週未交總清單！可直接發送');
@@ -3638,6 +3913,17 @@ createApp({
           console.error('Failed to parse storage', e);
         }
       }
+      const savedLeaders = localStorage.getItem(LEADERS_STORAGE_KEY);
+      if (savedLeaders) {
+        try {
+          const parsedLeaders = JSON.parse(savedLeaders);
+          if (parsedLeaders && typeof parsedLeaders === 'object') {
+            weeklyLeaders.value = parsedLeaders;
+          }
+        } catch (e) {
+          console.error('Failed to parse weekly leaders', e);
+        }
+      }
       weekDays.value.forEach(d => ensureDayData(d.iso));
 
       // 🌟 跨電腦即時同步自動啟動：
@@ -3677,6 +3963,14 @@ createApp({
       activeTab,
       currentDayObject,
       switchDay,
+      weeklyLeaders,
+      currentWeekKey,
+      currentWeekLeaders,
+      isCurrentWeekLeadersLocked,
+      onLeaderSeatInput,
+      finalizeLeaderSeat,
+      copyWeeklyLeaders,
+      handleLeadersLockToggle,
       currentView,
       toastMsg,
       soundEnabled,
